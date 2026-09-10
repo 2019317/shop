@@ -89,8 +89,7 @@ func OrderDetail(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		email := r.URL.Query().Get("email")
 		order, err := svcCtx.ShopOrder.DetailByNo(r.Context(), orderNo, email)
 		if err != nil {
-			logx.Errorf("order detail error: %v", err)
-			response.ServerError(w, "query failed")
+			serverError(w, r, err, "query failed")
 			return
 		}
 		if order == nil {

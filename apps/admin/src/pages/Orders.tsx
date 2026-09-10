@@ -34,6 +34,9 @@ interface OrderDetail {
   payment_status?: string
   carrier?: string
   tracking_no?: string
+  tracking_url?: string
+  shipment_status?: string
+  coupon_code?: string
   created_at: string
 }
 
@@ -111,6 +114,17 @@ export default function Orders() {
       load(data.page)
     } catch (err) {
       message.error(err instanceof Error ? err.message : 'cancel failed')
+    }
+  }
+
+  const markDelivered = async () => {
+    if (!detail) return
+    try {
+      await api.post(`/admin/orders/${detail.id}/delivered`)
+      message.success('Marked as delivered')
+      await openDetail(detail.id)
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'update failed')
     }
   }
 
@@ -199,6 +213,11 @@ export default function Orders() {
           detail?.status === 'pending' && (
             <Button key="cancel" danger onClick={cancel}>
               Cancel
+            </Button>
+          ),
+          detail?.status === 'fulfilled' && detail?.shipment_status === 'shipped' && (
+            <Button key="delivered" onClick={markDelivered}>
+              Mark Delivered
             </Button>
           ),
         ]}

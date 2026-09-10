@@ -65,10 +65,34 @@ export interface CreateOrderInput {
   items: { sku_code: string; qty: number }[]
   shipping_address: Record<string, string>
   customer_note?: string
+  coupon_code?: string
+}
+
+export interface ValidateCouponResult {
+  valid: boolean
+  code: string
+  discount_cents: number
+  message: string
+}
+
+export interface PublicCoupon {
+  code: string
+  type: 'percent' | 'fixed'
+  value: number
+  min_amount_cents: number
+  ends_at?: string
 }
 
 export const orderApi = {
   create: (input: CreateOrderInput) => post<OrderVO>('/orders', input),
+  // 试算优惠券：服务端校验，返回可抵扣金额（不占用名额）
+  validateCoupon: (code: string, subtotalCents: number) =>
+    post<ValidateCouponResult>('/coupons/validate', {
+      code,
+      subtotal_cents: subtotalCents,
+    }),
+  // 可用券列表
+  activeCoupons: () => get<PublicCoupon[]>('/coupons'),
   // 查询订单需同时提供下单邮箱，服务端据此校验归属，防止订单号被枚举泄露隐私
   detail: (orderNo: string, email?: string) =>
     get<OrderVO>(

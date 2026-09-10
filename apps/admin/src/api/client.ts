@@ -149,3 +149,53 @@ export interface PresignResult {
   object_key: string
   public_url: string
 }
+
+// ---------- 优惠券 ----------
+export interface CouponRow {
+  id: string
+  code: string
+  type: 'percent' | 'fixed'
+  value: number
+  min_amount_cents: number
+  max_uses: number
+  used_count: number
+  starts_at?: string
+  ends_at?: string
+  status: string
+  created_at: string
+}
+
+export interface CouponInput {
+  code: string
+  type: 'percent' | 'fixed'
+  value: number
+  min_amount_cents: number
+  max_uses: number
+  starts_at?: string
+  ends_at?: string
+  status: string
+}
+
+// ---------- 运费规则 ----------
+export interface ShippingRuleRow {
+  id: string
+  name: string
+  country_codes: string[]
+  min_amount_cents: number
+  max_weight_g: number
+  price_cents: number
+  free_threshold_cents: number
+  sort_order: number
+  status: string
+}
+
+export interface ShippingRuleInput {
+  name: string
+  country_codes: string[]
+  min_amount_cents: number
+  max_weight_g: number
+  price_cents: number
+  free_threshold_cents: number
+  sort_order: number
+  status: string
+}

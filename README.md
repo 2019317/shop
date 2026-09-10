@@ -244,6 +244,9 @@ make check       # 健康巡检，剩余内存 <150MB 会告警
 | POST | `/orders` | 提交订单（服务端计价、库存预占） |
 | GET | `/orders/:order_no` | 按订单号查询 |
 | POST | `/payments/notify` | 支付回调（幂等，当前供 mock 渠道调用） |
+| GET | `/readyz` | 就绪探针（检查数据库与关键表是否存在） |
+| GET | `/coupons` | 前台可用优惠券列表 |
+| POST | `/coupons/validate` | 优惠券试算（返回可抵扣金额，不占用名额） |
 
 ### 后台（需 `Authorization: Bearer <token>`）
 
@@ -263,7 +266,17 @@ make check       # 健康巡检，剩余内存 <150MB 会告警
 | GET | `/admin/orders` | 订单列表（支持 `status` / `keyword`） |
 | GET | `/admin/orders/:id` | 订单详情 |
 | POST | `/admin/orders/:id/ship` | 发货（填物流单号） |
+| POST | `/admin/orders/:id/delivered` | 将运单标记为已送达 |
 | POST | `/admin/orders/:id/cancel` | 取消订单并回滚库存 |
+| GET | `/admin/coupons` | 优惠券列表（支持 `keyword` / `status`） |
+| GET | `/admin/coupons/:id` | 优惠券详情 |
+| POST | `/admin/coupons` | 创建优惠券 |
+| PUT | `/admin/coupons/:id` | 更新优惠券（券码与已用量不可改） |
+| POST | `/admin/coupons/:id/status` | 启用/停用优惠券 |
+| GET | `/admin/shipping/rules` | 运费规则列表 |
+| POST | `/admin/shipping/rules` | 创建运费规则 |
+| PUT | `/admin/shipping/rules/:id` | 更新运费规则 |
+| DELETE | `/admin/shipping/rules/:id` | 停用运费规则 |
 
 ## 九、订单与支付流程
 

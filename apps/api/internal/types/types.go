@@ -253,6 +253,8 @@ type AdminOrderDetail struct {
 	Carrier       string                 `json:"carrier,omitempty"`
 	TrackingNo    string                 `json:"tracking_no,omitempty"`
 	TrackingUrl   string                 `json:"tracking_url,omitempty"`
+	ShipmentStatus string                `json:"shipment_status,omitempty"`
+	CouponCode    string                 `json:"coupon_code,omitempty"`
 	CreatedAt     string                 `json:"created_at"`
 }
 
@@ -264,6 +266,81 @@ type ShipOrderReq struct {
 
 type CancelOrderReq struct {
 	Reason string `json:"reason"`
+}
+
+// ---------- 后台：优惠券管理 ----------
+type AdminCouponItem struct {
+	Id             string `json:"id"`
+	Code           string `json:"code"`
+	Type           string `json:"type"`  // percent | fixed
+	Value          int64  `json:"value"` // percent: 百分比(10=9折) fixed: 分
+	MinAmountCents int64  `json:"min_amount_cents"`
+	MaxUses        int    `json:"max_uses"` // 0 表示不限
+	UsedCount      int    `json:"used_count"`
+	StartsAt       string `json:"starts_at,omitempty"`
+	EndsAt         string `json:"ends_at,omitempty"`
+	Status         string `json:"status"`
+	CreatedAt      string `json:"created_at"`
+}
+
+type AdminCouponReq struct {
+	Code           string `json:"code"`
+	Type           string `json:"type"`
+	Value          int64  `json:"value"`
+	MinAmountCents int64  `json:"min_amount_cents"`
+	MaxUses        int    `json:"max_uses"`
+	StartsAt       string `json:"starts_at"`
+	EndsAt         string `json:"ends_at"`
+	Status         string `json:"status"`
+}
+
+type SetCouponStatusReq struct {
+	Status string `json:"status"`
+}
+
+// ---------- 前台：优惠券试算 ----------
+type ValidateCouponReq struct {
+	Code     string `json:"code"`
+	Subtotal int64  `json:"subtotal_cents"`
+}
+
+type ValidateCouponResp struct {
+	Valid         bool   `json:"valid"`
+	Code          string `json:"code"`
+	DiscountCents int64  `json:"discount_cents"`
+	Message       string `json:"message"`
+}
+
+type PublicCoupon struct {
+	Code           string `json:"code"`
+	Type           string `json:"type"`
+	Value          int64  `json:"value"`
+	MinAmountCents int64  `json:"min_amount_cents"`
+	EndsAt         string `json:"ends_at,omitempty"`
+}
+
+// ---------- 后台：运费规则 ----------
+type AdminShippingRule struct {
+	Id                 string   `json:"id"`
+	Name               string   `json:"name"`
+	CountryCodes       []string `json:"country_codes"` // 空表示其余所有国家
+	MinAmountCents     int64    `json:"min_amount_cents"`
+	MaxWeightG         int      `json:"max_weight_g"`
+	PriceCents         int64    `json:"price_cents"`
+	FreeThresholdCents int64    `json:"free_threshold_cents"`
+	SortOrder          int      `json:"sort_order"`
+	Status             string   `json:"status"`
+}
+
+type AdminShippingRuleReq struct {
+	Name               string   `json:"name"`
+	CountryCodes       []string `json:"country_codes"`
+	MinAmountCents     int64    `json:"min_amount_cents"`
+	MaxWeightG         int      `json:"max_weight_g"`
+	PriceCents         int64    `json:"price_cents"`
+	FreeThresholdCents int64    `json:"free_threshold_cents"`
+	SortOrder          int      `json:"sort_order"`
+	Status             string   `json:"status"`
 }
 
 // ---------- 支付回调 ----------

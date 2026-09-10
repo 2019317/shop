@@ -24,7 +24,7 @@ func ProductList(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			parseInt(r, "page_size", 24),
 		)
 		if err != nil {
-			response.ServerError(w, "query failed")
+			serverError(w, r, err, "query failed")
 			return
 		}
 		response.OK(w, data)
@@ -39,7 +39,7 @@ func ProductDetail(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		data, err := svcCtx.ShopProduct.Detail(r.Context(), slug, i18n.FromRequest(r))
 		if err != nil {
-			response.ServerError(w, "query failed")
+			serverError(w, r, err, "query failed")
 			return
 		}
 		if data == nil {
@@ -54,7 +54,7 @@ func CategoryList(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		list, err := svcCtx.ShopProduct.Categories(r.Context(), i18n.FromRequest(r))
 		if err != nil {
-			response.ServerError(w, "query failed")
+			serverError(w, r, err, "query failed")
 			return
 		}
 		response.OK(w, list)

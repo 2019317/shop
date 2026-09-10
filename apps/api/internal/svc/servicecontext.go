@@ -31,6 +31,8 @@ type ServiceContext struct {
 	AdminCategory *admin.CategoryLogic
 	AdminAsset    *admin.AssetLogic
 	AdminOrder    *admin.OrderLogic
+	AdminCoupon   *admin.CouponLogic
+	AdminShipping *admin.ShippingLogic
 
 	// 前台
 	ShopProduct *shopLogic.ProductLogic
@@ -80,6 +82,8 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		AdminCategory: admin.NewCategoryLogic(categoryRepo, store),
 		AdminAsset:    admin.NewAssetLogic(store),
 		AdminOrder:    admin.NewOrderLogic(orderRepo, inventoryRepo, couponRepo, bus),
+		AdminCoupon:   admin.NewCouponLogic(couponRepo),
+		AdminShipping: admin.NewShippingLogic(shippingRepo, orderRepo),
 
 		ShopProduct: shopLogic.NewProductLogic(productRepo, categoryRepo, store.PublicURL),
 		ShopOrder: shopLogic.NewOrderLogic(

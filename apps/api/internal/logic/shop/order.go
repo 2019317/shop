@@ -348,6 +348,51 @@ func (l *OrderLogic) DetailByNo(ctx context.Context, orderNo, email string) (*ty
 	return l.toVO(ctx, order, nil)
 }
 
+// ValidateCoupon 前台试算优惠券：返回是否可用与可抵扣金额（不占用名额）
+func (l *OrderLogic) ValidateCoupon(ctx context.Context, code string, subtotal int64) (*types.ValidateCouponResp, error) {
+	resp := &types.ValidateCouponResp{Code: strings.TrimSpace(code)}
+	if resp.Code == "" {
+		resp.Message = "coupon code is required"
+		return resp, nil
+	}
+	discount, err := l.applyCoupon(ctx, resp.Code, subtotal)
+	if err != nil {
+		resp.Message = err.Error()
+		return resp, nil
+	}
+	if discount == nil {
+		resp.Message = "invalid coupon code"
+		return resp, nil
+	}
+	resp.Valid = true
+	resp.Code = discount.Code
+	resp.DiscountCents = discount.DiscountCents
+	resp.Message = "ok"
+	return resp, nil
+}
+
+// ActiveCoupons 前台展示的可用券（只暴露券码与优惠信息，供用户自行填写）
+func (l *OrderLogic) ActiveCoupons(ctx context.Context) ([]types.PublicCoupon, error) {
+	list, err := l.couponRepo.ListActive(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]types.PublicCoupon, 0, len(list))
+	for _, c := range list {
+		item := types.PublicCoupon{
+			Code:           c.Code,
+			Type:           c.Type,
+			Value:          c.Value,
+			MinAmountCents: c.MinAmountCents,
+		}
+		if c.EndsAt != nil {
+			item.EndsAt = c.EndsAt.Format("2006-01-02")
+		}
+		out = append(out, item)
+	}
+	return out, nil
+}
+
 func (l *OrderLogic) toVO(ctx context.Context, order *model.OrderDetail, intent *payment.IntentResult) (*types.OrderVO, error) {
 	items := make([]types.OrderItemVO, 0, len(order.Items))
 	for _, it := range order.Items {

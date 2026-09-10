@@ -96,6 +96,7 @@ func (l *OrderLogic) Detail(ctx context.Context, id string) (*types.AdminOrderDe
 		CustomerNote:  detail.CustomerNote,
 		ShippingAddr:  decodeMap(detail.ShippingAddress),
 		Items:         items,
+		CouponCode:    detail.CouponCode,
 		CreatedAt:     detail.CreatedAt.Format("2006-01-02 15:04:05"),
 	}
 	if detail.Payment != nil {
@@ -106,6 +107,7 @@ func (l *OrderLogic) Detail(ctx context.Context, id string) (*types.AdminOrderDe
 		out.Carrier = detail.Shipment.Carrier
 		out.TrackingNo = detail.Shipment.TrackingNo
 		out.TrackingUrl = detail.Shipment.TrackingUrl
+		out.ShipmentStatus = detail.Shipment.Status
 	}
 	return out, nil
 }

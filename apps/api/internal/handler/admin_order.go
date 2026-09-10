@@ -3,7 +3,6 @@ package handler
 import (
 	"net/http"
 
-	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest/httpx"
 
 	"github.com/yourname/stationery-shop/apps/api/internal/logic/admin"
@@ -23,7 +22,7 @@ func AdminOrderList(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			parseInt(r, "page_size", 20),
 		)
 		if err != nil {
-			response.ServerError(w, "query failed")
+			serverError(w, r, err, "query failed")
 			return
 		}
 		response.OK(w, data)
@@ -38,7 +37,7 @@ func AdminOrderDetail(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		data, err := svcCtx.AdminOrder.Detail(r.Context(), id)
 		if err != nil {
-			response.ServerError(w, "query failed")
+			serverError(w, r, err, "query failed")
 			return
 		}
 		if data == nil {
@@ -70,8 +69,7 @@ func AdminOrderShip(svcCtx *svc.ServiceContext) http.HandlerFunc {
 				response.BadRequest(w, "only paid orders can be shipped")
 				return
 			}
-			logx.Errorf("order ship error: %v", err)
-			response.ServerError(w, "ship failed")
+			serverError(w, r, err, "ship failed")
 			return
 		}
 		response.OK(w, map[string]string{"id": id, "status": "fulfilled"})
@@ -95,7 +93,7 @@ func AdminOrderCancel(svcCtx *svc.ServiceContext) http.HandlerFunc {
 				response.BadRequest(w, "only pending orders can be cancelled")
 				return
 			}
-			response.ServerError(w, "cancel failed")
+			serverError(w, r, err, "cancel failed")
 			return
 		}
 		response.OK(w, map[string]string{"id": id, "status": "cancelled"})

@@ -5,6 +5,8 @@ import Products from './pages/Products'
 import ProductEdit from './pages/ProductEdit'
 import Categories from './pages/Categories'
 import Orders from './pages/Orders'
+import Coupons from './pages/Coupons'
+import Shipping from './pages/Shipping'
 import { getToken } from './api/client'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -32,6 +34,8 @@ export default function App() {
         <Route path="products/:id" element={<ProductEdit />} />
         <Route path="categories" element={<Categories />} />
         <Route path="orders" element={<Orders />} />
+        <Route path="coupons" element={<Coupons />} />
+        <Route path="shipping" element={<Shipping />} />
       </Route>
     </Routes>
   )

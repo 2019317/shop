@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useCart } from '../../../components/CartProvider'
 import { useI18n } from '../../../components/I18nProvider'
 import { formatPrice } from '../../../lib/api'
-import { createOrder, type OrderVO } from '../../../lib/order'
+import { createOrder, orderApi, type OrderVO } from '../../../lib/order'
 
 export default function CheckoutPage() {
   const { items, subtotalCents, clear } = useCart()
@@ -13,6 +13,8 @@ export default function CheckoutPage() {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [couponCode, setCouponCode] = useState('')
+  const [couponInfo, setCouponInfo] = useState<{ code: string; discount: number } | null>(null)
   const [form, setForm] = useState({
     email: '',
     name: '',
@@ -28,6 +30,32 @@ export default function CheckoutPage() {
 
   const update = (key: string, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }))
+
+  const applyCoupon = async () => {
+    setError('')
+    const code = couponCode.trim()
+    if (!code) {
+      setCouponInfo(null)
+      return
+    }
+    try {
+      const res = await orderApi.validateCoupon(code, subtotalCents)
+      if (!res.valid) {
+        setCouponInfo(null)
+        setError(dict.checkout.couponInvalid)
+        return
+      }
+      setCouponInfo({ code: res.code, discount: res.discount_cents })
+    } catch {
+      setCouponInfo(null)
+      setError(dict.checkout.couponInvalid)
+    }
+  }
+
+  const removeCoupon = () => {
+    setCouponInfo(null)
+    setCouponCode('')
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -59,6 +87,7 @@ export default function CheckoutPage() {
           phone: form.phone,
         },
         customer_note: form.note,
+        coupon_code: couponInfo?.code,
       })
 
       clear()
@@ -160,6 +189,60 @@ export default function CheckoutPage() {
               <span>{dict.cart.subtotal}</span>
               <span>{formatPrice(subtotalCents, 'USD', locale)}</span>
             </div>
+
+            <div style={{ marginTop: 16 }}>
+              <span style={{ fontSize: 13, color: 'var(--color-muted)' }}>
+                {dict.checkout.coupon}
+              </span>
+              {couponInfo ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginTop: 6,
+                    fontSize: 14,
+                    color: 'var(--color-accent)',
+                  }}
+                >
+                  <span>
+                    {couponInfo.code} · -{formatPrice(couponInfo.discount, 'USD', locale)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={removeCoupon}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--color-muted)',
+                      cursor: 'pointer',
+                      fontSize: 13,
+                    }}
+                  >
+                    {dict.checkout.remove}
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                  <input
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value)}
+                    placeholder={dict.checkout.couponPlaceholder}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 8,
+                      fontSize: 14,
+                    }}
+                  />
+                  <button type="button" className="btn-secondary" onClick={applyCoupon}>
+                    {dict.checkout.apply}
+                  </button>
+                </div>
+              )}
+            </div>
+
             <p style={{ fontSize: 12, color: 'var(--color-muted)', marginTop: 8 }}>
               {dict.checkout.serverShipping}
             </p>

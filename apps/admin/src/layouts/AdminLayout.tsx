@@ -6,6 +6,8 @@ import {
   TagsOutlined,
   ShoppingCartOutlined,
   LogoutOutlined,
+  GiftOutlined,
+  CarOutlined,
 } from '@ant-design/icons'
 import { clearToken } from '../api/client'
 import { useI18n } from '../i18n/I18nProvider'
@@ -52,6 +54,8 @@ export default function AdminLayout() {
             { key: 'products', icon: <AppstoreOutlined />, label: dict.menu.products },
             { key: 'orders', icon: <ShoppingCartOutlined />, label: dict.menu.orders },
             { key: 'categories', icon: <TagsOutlined />, label: dict.menu.categories },
+            { key: 'coupons', icon: <GiftOutlined />, label: dict.menu.coupons },
+            { key: 'shipping', icon: <CarOutlined />, label: dict.menu.shipping },
           ]}
           onClick={({ key }) => navigate(`/${key}`)}
         />

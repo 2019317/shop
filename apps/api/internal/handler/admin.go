@@ -46,7 +46,7 @@ func AdminProductList(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		data, err := svcCtx.AdminProduct.List(r.Context(), keyword, page, pageSize)
 		if err != nil {
-			response.ServerError(w, "query failed")
+			serverError(w, r, err, "query failed")
 			return
 		}
 		response.OK(w, data)
@@ -61,7 +61,7 @@ func AdminProductDetail(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		data, err := svcCtx.AdminProduct.Detail(r.Context(), id)
 		if err != nil {
-			response.ServerError(w, "query failed")
+			serverError(w, r, err, "query failed")
 			return
 		}
 		if data == nil {
@@ -85,8 +85,7 @@ func AdminProductCreate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		id, err := svcCtx.AdminProduct.Create(r.Context(), req)
 		if err != nil {
-			logx.Errorf("product create error: %v", err)
-			response.ServerError(w, "create failed")
+			serverError(w, r, err, "create failed")
 			return
 		}
 		response.OK(w, map[string]string{"id": id})
@@ -105,8 +104,7 @@ func AdminProductUpdate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		if err := svcCtx.AdminProduct.Update(r.Context(), id, req); err != nil {
-			logx.Errorf("product update error: %v", err)
-			response.ServerError(w, "update failed")
+			serverError(w, r, err, "update failed")
 			return
 		}
 		response.OK(w, map[string]string{"id": id})
@@ -120,7 +118,7 @@ func AdminProductDelete(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			id = pathParam(r, "id")
 		}
 		if err := svcCtx.AdminProduct.Delete(r.Context(), id); err != nil {
-			response.ServerError(w, "delete failed")
+			serverError(w, r, err, "delete failed")
 			return
 		}
 		response.OK(w, map[string]string{"id": id})
@@ -132,7 +130,7 @@ func AdminCategoryList(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		list, err := svcCtx.AdminCategory.List(r.Context())
 		if err != nil {
-			response.ServerError(w, "query failed")
+			serverError(w, r, err, "query failed")
 			return
 		}
 		response.OK(w, list)
@@ -152,8 +150,7 @@ func AdminCategoryCreate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		id, err := svcCtx.AdminCategory.Create(r.Context(), req)
 		if err != nil {
-			logx.Errorf("category create error: %v", err)
-			response.ServerError(w, "create failed")
+			serverError(w, r, err, "create failed")
 			return
 		}
 		response.OK(w, map[string]string{"id": id})
@@ -172,7 +169,7 @@ func AdminCategoryUpdate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		if err := svcCtx.AdminCategory.Update(r.Context(), id, req); err != nil {
-			response.ServerError(w, "update failed")
+			serverError(w, r, err, "update failed")
 			return
 		}
 		response.OK(w, map[string]string{"id": id})
@@ -186,7 +183,7 @@ func AdminCategoryDelete(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			id = pathParam(r, "id")
 		}
 		if err := svcCtx.AdminCategory.Delete(r.Context(), id); err != nil {
-			response.ServerError(w, "delete failed")
+			serverError(w, r, err, "delete failed")
 			return
 		}
 		response.OK(w, map[string]string{"id": id})
