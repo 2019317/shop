@@ -60,10 +60,11 @@ func main() {
 		fmt.Printf("已重置管理员密码：%s (id=%s)\n", *email, id)
 
 	case err == sql.ErrNoRows:
+		// QueryRowCtx 会把 RETURNING id 直接扫描进 &id，无需再调用 Scan
 		if err := conn.QueryRowCtx(ctx, &id,
 			`INSERT INTO admin.admin_users (email, password_hash, name, role, status)
 			 VALUES ($1,$2,$3,'admin','active') RETURNING id`,
-			*email, hash, *name).Scan(&id); err != nil {
+			*email, hash, *name); err != nil {
 			log.Fatalf("创建管理员失败: %v", err)
 		}
 		fmt.Printf("已创建管理员：%s (id=%s)\n", *email, id)
