@@ -26,7 +26,7 @@ import {
   type TranslationInput,
 } from '../api/client'
 import { uploadImage } from '../lib/upload'
-import { useI18n } from '../i18n'
+import { useI18n } from '../i18n/I18nProvider'
 
 const IMG_BASE = import.meta.env.VITE_IMG_BASE_URL || ''
 
