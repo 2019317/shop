@@ -16,6 +16,10 @@ RUN go mod download
 # 单 module 多应用，仅拷贝后端目录
 COPY apps/api/ ./apps/api/
 
+# 仓库未提交 go.sum，构建时允许 Go 自动解析并写入依赖哈希（构建机需联网）
+ENV GOFLAGS=-mod=mod
+RUN go mod download all
+
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath -ldflags="-s -w" -o /build/bin/api ./apps/api/cmd/api
 
