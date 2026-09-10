@@ -40,8 +40,8 @@ type ServiceContext struct {
 func NewServiceContext(c config.Config) *ServiceContext {
 	db := sqlx.NewSqlConn("postgres", c.Database.Dsn)
 
+	// go-zero v1.7.0 的 RedisConf.NewRedis 已内部完成连接，无需也不再支持 Start()
 	rds := c.Redis.NewRedis()
-	rds.Start()
 
 	store := storage.New(storage.Config{
 		AccountId:       c.R2.AccountId,
