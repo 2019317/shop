@@ -544,7 +544,7 @@ func (r *ProductRepo) Update(ctx context.Context, id string, in CreateProductInp
 				compare_at_cents=EXCLUDED.compare_at_cents, weight_g=EXCLUDED.weight_g,
 				image_key=EXCLUDED.image_key, status='active', sort_order=EXCLUDED.sort_order
 			 WHERE catalog.product_variants.product_id = EXCLUDED.product_id
-			 RETURNING id`
+			 RETURNING catalog.product_variants.id`
 			vStmt, err := session.Prepare(upsert)
 			if err != nil {
 				return err
