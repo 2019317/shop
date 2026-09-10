@@ -1,0 +1,96 @@
+# ===========================================
+# 本地快速部署（无域名 / 无 Nginx / 无 R2）
+# 直接用服务器 IP:8888 访问 API，用于先跑起来验证
+# 用法（在仓库根目录）：
+#   docker compose -f infra/docker-compose.local.yml up -d --build
+# 停止：docker compose -f infra/docker-compose.local.yml down
+# 日志：docker compose -f infra/docker-compose.local.yml logs -f api
+# ===========================================
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: shop-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PG_USER:-shop}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-change_me}
+      POSTGRES_DB: ${PG_DB:-shop}
+    # 2GB 机型内存调优（不依赖外部配置文件）
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "effective_cache_size=512MB"
+      - "-c"
+      - "max_connections=40"
+      - "-c"
+      - "work_mem=4MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # 首次启动自动执行建表 + 种子 + i18n 迁移（数据目录非空后不再执行）
+      - ./sql/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-shop} -d ${PG_DB:-shop}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: shop-redis
+    restart: unless-stopped
+    command:
+      - "redis-server"
+      - "--appendonly"
+      - "yes"
+      - "--requirepass"
+      - "${REDIS_PASSWORD:-change_me}"
+      - "--maxmemory"
+      - "128mb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-change_me}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    container_name: shop-api
+    restart: unless-stopped
+    # 直接用 api.yaml.example（其内部 ${VAR} 从 .env 注入）
+    command: ["/app/api", "-f", "/app/etc/api.yaml.example"]
+    env_file:
+      - ../.env
+    environment:
+      APP_ENV: production
+      REDIS_ADDR: redis:6379
+    ports:
+      - "8888:8888"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8888/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+volumes:
+  pgdata:
+  redisdata:

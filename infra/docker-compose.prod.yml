@@ -1,0 +1,74 @@
+# ===========================================
+# 生产环境编排（部署在 Vultr 2C4G VPS）
+# 只跑：Go API + Nginx + Redis
+# 数据库使用 Neon（外部托管），图片使用 Cloudflare R2
+# 用法：docker compose -f infra/docker-compose.prod.yml up -d
+# ===========================================
+services:
+  api:
+    image: ${API_IMAGE:-ghcr.io/yourname/stationery-shop-api:latest}
+    container_name: shop-api
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      APP_ENV: production
+      # 容器内访问 Redis 用服务名
+      REDIS_ADDR: redis:6379
+    expose:
+      - "8888"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8888/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          # Go 服务内存占用极低，256MB 足够；留出余量给峰值
+          memory: 512M
+
+  redis:
+    image: redis:7-alpine
+    container_name: shop-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-}", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: shop-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro            # Cloudflare 源证书 / Let's Encrypt
+      - ./logs:/var/log/nginx
+    depends_on:
+      - api
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+volumes:
+  redisdata:

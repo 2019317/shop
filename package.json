@@ -1,0 +1,22 @@
+{
+  "name": "stationery-shop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Handcrafted stationery DTC store — Go API + Next.js storefront + React admin",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev:web": "pnpm --filter @shop/web dev",
+    "dev:admin": "pnpm --filter @shop/admin dev",
+    "build:web": "pnpm --filter @shop/web build",
+    "build:admin": "pnpm --filter @shop/admin build",
+    "build": "pnpm build:admin && pnpm build:web",
+    "typecheck": "pnpm --filter @shop/web typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.3"
+  }
+}

@@ -1,0 +1,197 @@
+# ===========================================
+# 单机全量部署（变量驱动，适配 1GB / 2GB / 4GB 机型）
+# 包含：Go API + Nginx + PostgreSQL + Redis
+#
+# 机型档位（在 .env 中设置 MEM_PROFILE 对应的参数）：
+#   1GB  (t3.micro)   → 见 .env.example「档位A」
+#   2GB  (t3.small)   → 见 .env.example「档位B」
+#   4GB  (t3.medium)  → 见 .env.example「档位C」
+#
+# 用法：docker compose -f infra/docker-compose.all-in-one.yml up -d
+# 前提：先执行 infra/scripts/setup-single-box.sh（配置 swap 与内核参数）
+# ===========================================
+services:
+  # ---------------- PostgreSQL ----------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: shop-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PG_USER:-shop}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?请设置 PG_PASSWORD}
+      POSTGRES_DB: ${PG_DB:-shop}
+      TZ: UTC
+      PGTZ: UTC
+    # 所有调优参数均可通过环境变量覆盖，按机型调整（详见 .env.example）
+    command:
+      - "postgres"
+      - "-c"
+      - "timezone=UTC"
+      - "-c"
+      - "shared_buffers=${PG_SHARED_BUFFERS:-64MB}"
+      - "-c"
+      - "effective_cache_size=${PG_EFFECTIVE_CACHE:-256MB}"
+      - "-c"
+      - "work_mem=${PG_WORK_MEM:-2MB}"
+      - "-c"
+      - "maintenance_work_mem=${PG_MAINT_WORK_MEM:-32MB}"
+      - "-c"
+      - "max_connections=${PG_MAX_CONN:-20}"
+      - "-c"
+      - "wal_buffers=${PG_WAL_BUFFERS:-1MB}"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "max_wal_size=${PG_MAX_WAL:-512MB}"
+      - "-c"
+      - "log_min_duration_statement=${PG_SLOW_LOG_MS:-1000}"
+      - "-c"
+      - "log_statement=none"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-shop} -d ${PG_DB:-shop}"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    # 数据库被 OOM 杀掉有数据损坏风险，降低被选中概率
+    oom_score_adj: -500
+    deploy:
+      resources:
+        limits:
+          memory: ${PG_MEM_LIMIT:-320M}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------- Redis ----------------
+  redis:
+    image: redis:7-alpine
+    container_name: shop-redis
+    restart: unless-stopped
+    command:
+      - "redis-server"
+      - "--appendonly"
+      - "yes"
+      - "--requirepass"
+      - "${REDIS_PASSWORD:?请设置 REDIS_PASSWORD}"
+      - "--maxmemory"
+      - "${REDIS_MAXMEMORY:-64mb}"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+      - "--save"
+      - "900 1"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: ${REDIS_MEM_LIMIT:-96M}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------- Go API ----------------
+  api:
+    image: ${API_IMAGE:-ghcr.io/yourname/stationery-shop-api:latest}
+    container_name: shop-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgres://${PG_USER:-shop}:${PG_PASSWORD}@postgres:5432/${PG_DB:-shop}?sslmode=disable
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Go GC 调优：内存越紧张，GOGC 设越小（更早触发回收）
+      GOGC: "${GOGC:-60}"
+      GOMEMLIMIT: "${GOMEMLIMIT:-160MiB}"
+    expose:
+      - "8888"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8888/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: ${API_MEM_LIMIT:-192M}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------- Nginx（含静态后台托管）----------------
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: shop-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+      - ../apps/admin/dist:/usr/share/nginx/admin:ro
+      - ./logs:/var/log/nginx
+    depends_on:
+      - api
+    deploy:
+      resources:
+        limits:
+          memory: ${NGINX_MEM_LIMIT:-64M}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------- 可选：Next.js 前台（仅 4GB 机型启用）----------------
+  # 说明：1GB/2GB 机型请勿启用；推荐永远放 Vercel（免费 + 全球 CDN）
+  # 启用：docker compose -f infra/docker-compose.all-in-one.yml --profile frontend up -d
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/yourname/stationery-shop-web:latest}
+    container_name: shop-web
+    restart: unless-stopped
+    profiles: ["frontend"]
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+      NEXT_PUBLIC_IMG_BASE_URL: ${NEXT_PUBLIC_IMG_BASE_URL}
+      # Node 堆上限，防止 SSR 吃光内存
+      NODE_OPTIONS: "--max-old-space-size=384"
+    expose:
+      - "3000"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  pgdata:
+  redisdata:

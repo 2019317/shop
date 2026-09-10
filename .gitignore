@@ -1,0 +1,30 @@
+# ---------- 环境变量 ----------
+.env
+.env.local
+.env.*.local
+apps/api/etc/api.yaml
+
+# ---------- Go ----------
+bin/
+*.exe
+*.test
+*.out
+
+# ---------- Node ----------
+node_modules/
+.next/
+out/
+dist/
+.pnpm-store/
+*.tsbuildinfo
+
+# ---------- 证书与日志 ----------
+infra/certs/*
+!infra/certs/.gitkeep
+infra/logs/
+*.log
+
+# ---------- 编辑器 / 系统 ----------
+.DS_Store
+.idea/
+.vscode/

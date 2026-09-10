@@ -1,0 +1,51 @@
+# ===========================================
+# Go API 配置模板（复制为 api.yaml）
+# ${XXX} 会在加载时从环境变量注入，生产环境敏感信息一律走环境变量
+# ===========================================
+Name: shop-api
+Host: 0.0.0.0
+Port: 8888
+Mode: pro
+Timeout: 30000
+MaxBytes: 20971520
+
+# ---------- 数据库：Neon / 云 RDS ----------
+Database:
+  Dsn: ${DATABASE_URL}
+  MaxOpenConns: 20
+  MaxIdleConns: 5
+
+# ---------- Redis ----------
+Redis:
+  Host: ${REDIS_ADDR}
+  Type: node
+
+# ---------- 鉴权 ----------
+Auth:
+  AccessSecret: ${JWT_SECRET}
+  AccessExpire: 259200 # 72h
+AdminAuth:
+  AccessSecret: ${ADMIN_JWT_SECRET}
+  AccessExpire: 43200 # 12h
+
+# ---------- Cloudflare R2 ----------
+R2:
+  AccountId: ${R2_ACCOUNT_ID}
+  AccessKeyId: ${R2_ACCESS_KEY_ID}
+  SecretAccessKey: ${R2_SECRET_ACCESS_KEY}
+  Bucket: ${R2_BUCKET}
+  PublicUrl: ${R2_PUBLIC_URL}
+  PresignExpire: 600
+
+# ---------- 支付 ----------
+# driver: mock（当前，不依赖任何 SDK）| stripe（接入后启用）
+Payment:
+  Driver: mock
+  StripeSecretKey: ${STRIPE_SECRET_KEY}
+  StripeWebhookKey: ${STRIPE_WEBHOOK_SECRET}
+  Currency: USD
+
+# ---------- 邮件 ----------
+Mail:
+  ApiKey: ${RESEND_API_KEY}
+  From: ${MAIL_FROM}
