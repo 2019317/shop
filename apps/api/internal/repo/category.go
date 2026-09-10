@@ -31,7 +31,7 @@ const categoryColumnsLocalized = `c.id, c.parent_id,
 func (r *CategoryRepo) ListActive(ctx context.Context, locale string) ([]model.Category, error) {
 	locale = i18n.Normalize(locale)
 	join := ""
-	if i18n.Supported(locale) {
+	if locale != i18n.DefaultLocale {
 		join = fmt.Sprintf(`LEFT JOIN catalog.category_translations ct
 			ON ct.category_id = c.id AND ct.locale = '%s'`, locale)
 	}
@@ -100,7 +100,7 @@ func (r *CategoryRepo) Update(ctx context.Context, id string, in CategoryInput) 
 }
 
 // saveTranslations 写入类目翻译（空内容则删除该语言记录）
-func (r *CategoryRepo) saveTranslations(ctx context.Context, categoryId string, translations map[string]TranslationInput) error {
+func (r *CategoryRepo) saveTranslations(ctx context.Context, categoryId string, translations map[string]CategoryTranslationInput) error {
 	for locale, tr := range translations {
 		locale = i18n.Normalize(locale)
 		if locale == i18n.DefaultLocale {

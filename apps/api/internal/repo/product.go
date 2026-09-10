@@ -522,7 +522,7 @@ func (r *ProductRepo) Update(ctx context.Context, id string, in CreateProductInp
 				return err
 			}
 			var variantId string
-			err = vStmt.QueryRowCtx(ctx, &variantId, productId, v.SkuCode, v.Title, string(optJSON),
+			err = vStmt.QueryRowCtx(ctx, &variantId, id, v.SkuCode, v.Title, string(optJSON),
 				v.PriceCents, v.CompareAtCents, v.WeightG, v.ImageKey, v.SortOrder)
 			vStmt.Close()
 			if err != nil {
