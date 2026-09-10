@@ -319,8 +319,8 @@ func (l *OrderLogic) Cancel(ctx context.Context, orderNo, reason string) error {
 	if err := l.orderRepo.UpdateStatus(ctx, order.Id, "cancelled", "system", reason); err != nil {
 		return err
 	}
-	if order.CouponId != nil {
-		_ = l.couponRepo.DecrementUsage(ctx, *order.CouponId)
+	if order.CouponId.Valid {
+		_ = l.couponRepo.DecrementUsage(ctx, order.CouponId.String)
 	}
 
 	l.bus.Publish(ctx, event.Event{
@@ -385,8 +385,8 @@ func (l *OrderLogic) ActiveCoupons(ctx context.Context) ([]types.PublicCoupon, e
 			Value:          c.Value,
 			MinAmountCents: c.MinAmountCents,
 		}
-		if c.EndsAt != nil {
-			item.EndsAt = c.EndsAt.Format("2006-01-02")
+		if c.EndsAt.Valid {
+			item.EndsAt = c.EndsAt.Time.Format("2006-01-02")
 		}
 		out = append(out, item)
 	}
@@ -469,10 +469,10 @@ func (l *OrderLogic) applyCoupon(ctx context.Context, code string, subtotal int6
 	}
 
 	now := time.Now().UTC()
-	if coupon.StartsAt != nil && now.Before(*coupon.StartsAt) {
+	if coupon.StartsAt.Valid && now.Before(coupon.StartsAt.Time) {
 		return nil, ErrCouponNotStarted
 	}
-	if coupon.EndsAt != nil && now.After(*coupon.EndsAt) {
+	if coupon.EndsAt.Valid && now.After(coupon.EndsAt.Time) {
 		return nil, ErrCouponExpired
 	}
 	if coupon.MinAmountCents > 0 && subtotal < coupon.MinAmountCents {

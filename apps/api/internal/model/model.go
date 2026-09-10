@@ -20,9 +20,9 @@ type AdminUser struct {
 
 // ---------- catalog ----------
 type Category struct {
-	Id          string    `db:"id"`
-	ParentId    *string   `db:"parent_id"`
-	Name        string    `db:"name"`
+	Id          string         `db:"id"`
+	ParentId    sql.NullString `db:"parent_id"`
+	Name        string         `db:"name"`
 	Slug        string    `db:"slug"`
 	Description string    `db:"description"`
 	ImageKey    string    `db:"image_key"`
@@ -38,7 +38,7 @@ type Product struct {
 	Slug           string    `db:"slug"`
 	Subtitle       string    `db:"subtitle"`
 	Description    string    `db:"description"`
-	CategoryId     *string   `db:"category_id"`
+	CategoryId     sql.NullString `db:"category_id"`
 	Status         string    `db:"status"`
 	PriceCents     int64     `db:"price_cents"`
 	Currency       string    `db:"currency"`
@@ -46,7 +46,7 @@ type Product struct {
 	Tags           string    `db:"tags"`       // text[] 以文本读取
 	SeoTitle       string    `db:"seo_title"`
 	SeoDescription string    `db:"seo_description"`
-	PublishedAt    *time.Time `db:"published_at"`
+	PublishedAt    sql.NullTime `db:"published_at"`
 	CreatedAt      time.Time `db:"created_at"`
 	UpdatedAt      time.Time `db:"updated_at"`
 }
@@ -70,7 +70,7 @@ type ProductVariant struct {
 type ProductImage struct {
 	Id        string    `db:"id"`
 	ProductId string    `db:"product_id"`
-	VariantId *string   `db:"variant_id"`
+	VariantId sql.NullString `db:"variant_id"`
 	ObjectKey string    `db:"object_key"`
 	Alt       string    `db:"alt"`
 	SortOrder int       `db:"sort_order"`

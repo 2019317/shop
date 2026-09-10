@@ -164,8 +164,8 @@ func (l *OrderLogic) Cancel(ctx context.Context, id, reason string) error {
 	if err := l.orderRepo.UpdateStatus(ctx, id, "cancelled", "admin", reason); err != nil {
 		return err
 	}
-	if detail.CouponId != nil {
-		_ = l.couponRepo.DecrementUsage(ctx, *detail.CouponId)
+	if detail.CouponId.Valid {
+		_ = l.couponRepo.DecrementUsage(ctx, detail.CouponId.String)
 	}
 
 	l.bus.Publish(ctx, event.Event{

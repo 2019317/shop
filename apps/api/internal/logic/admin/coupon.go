@@ -175,11 +175,11 @@ func toCouponItem(c model.Coupon) types.AdminCouponItem {
 		Status:         c.Status,
 		CreatedAt:      c.CreatedAt.Format("2006-01-02 15:04"),
 	}
-	if c.StartsAt != nil {
-		item.StartsAt = c.StartsAt.Format("2006-01-02 15:04")
+	if c.StartsAt.Valid {
+		item.StartsAt = c.StartsAt.Time.Format("2006-01-02 15:04")
 	}
-	if c.EndsAt != nil {
-		item.EndsAt = c.EndsAt.Format("2006-01-02 15:04")
+	if c.EndsAt.Valid {
+		item.EndsAt = c.EndsAt.Time.Format("2006-01-02 15:04")
 	}
 	return item
 }

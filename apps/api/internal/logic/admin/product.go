@@ -71,8 +71,8 @@ func (l *ProductLogic) Detail(ctx context.Context, id string) (*types.AdminProdu
 		SeoTitle:    detail.SeoTitle,
 		SeoDesc:     detail.SeoDescription,
 	}
-	if detail.CategoryId != nil {
-		req.CategoryId = *detail.CategoryId
+	if detail.CategoryId.Valid {
+		req.CategoryId = detail.CategoryId.String
 	}
 
 	for _, v := range detail.Variants {
