@@ -390,9 +390,11 @@ func (r *ProductRepo) Create(ctx context.Context, in CreateProductInput) (string
 	if in.Attributes == nil {
 		attrJSON = []byte("{}")
 	}
-	tagsJSON, _ := json.Marshal(in.Tags)
-	if in.Tags == nil {
-		tagsJSON = []byte("[]")
+	// tags 是 PostgreSQL text[] 列，需用 pq.Array 编码为数组字面量（{}），
+	// 不能用 json.Marshal（会得到 "[]"，pq 解析会报 malformed array literal）
+	tags := in.Tags
+	if tags == nil {
+		tags = []string{}
 	}
 
 	var productId string
@@ -415,7 +417,7 @@ func (r *ProductRepo) Create(ctx context.Context, in CreateProductInput) (string
 
 		if err := stmt.QueryRowCtx(ctx, &productId,
 			in.Title, in.Slug, in.Subtitle, in.Description, in.CategoryId, in.Status,
-			in.PriceCents, in.Currency, string(attrJSON), string(tagsJSON), in.SeoTitle, in.SeoDesc,
+			in.PriceCents, in.Currency, string(attrJSON), pq.Array(tags), in.SeoTitle, in.SeoDesc,
 		); err != nil {
 			return err
 		}
@@ -477,9 +479,10 @@ func (r *ProductRepo) Update(ctx context.Context, id string, in CreateProductInp
 	if in.Attributes == nil {
 		attrJSON = []byte("{}")
 	}
-	tagsJSON, _ := json.Marshal(in.Tags)
-	if in.Tags == nil {
-		tagsJSON = []byte("[]")
+	// tags 为 text[]，使用 pq.Array 编码（见 Create 中的说明）
+	tags := in.Tags
+	if tags == nil {
+		tags = []string{}
 	}
 
 	return r.conn.TransactCtx(ctx, func(ctx context.Context, session sqlx.Session) error {
@@ -494,7 +497,7 @@ func (r *ProductRepo) Update(ctx context.Context, id string, in CreateProductInp
 		}
 		defer stmt.Close()
 		if _, err := stmt.ExecCtx(ctx, in.Title, in.Slug, in.Subtitle, in.Description, in.CategoryId,
-			in.Status, in.PriceCents, in.Currency, string(attrJSON), string(tagsJSON),
+			in.Status, in.PriceCents, in.Currency, string(attrJSON), pq.Array(tags),
 			in.SeoTitle, in.SeoDesc, id); err != nil {
 			return err
 		}

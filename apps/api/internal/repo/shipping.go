@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/lib/pq"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 
 	"github.com/yourname/stationery-shop/apps/api/internal/model"
@@ -93,20 +94,16 @@ func parseArray(raw string) []string {
 	return out
 }
 
-// formatArray 将字符串切片格式化为 PostgreSQL text[] 字面量
-func formatArray(codes []string) string {
-	if len(codes) == 0 {
-		return "{}"
-	}
-	quoted := make([]string, 0, len(codes))
+// normalizeCodes 清洗国家代码：去空格、转大写、去空项
+func normalizeCodes(codes []string) []string {
+	out := make([]string, 0, len(codes))
 	for _, c := range codes {
-		c = strings.TrimSpace(strings.ToUpper(c))
-		if c == "" {
-			continue
+		c = strings.ToUpper(strings.TrimSpace(c))
+		if c != "" {
+			out = append(out, c)
 		}
-		quoted = append(quoted, `"`+c+`"`)
 	}
-	return "{" + strings.Join(quoted, ",") + "}"
+	return out
 }
 
 // ---------- 后台管理：运费规则 ----------
@@ -178,7 +175,7 @@ func (r *ShippingRepo) CreateRule(ctx context.Context, in ShippingRuleInput) (st
 	 (name, country_codes, min_amount_cents, max_weight_g, price_cents, free_threshold_cents, sort_order, status)
 	 VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`
 	var id string
-	if err := r.conn.QueryRowCtx(ctx, &id, query, in.Name, formatArray(in.CountryCodes),
+	if err := r.conn.QueryRowCtx(ctx, &id, query, in.Name, pq.Array(normalizeCodes(in.CountryCodes)),
 		in.MinAmountCents, in.MaxWeightG, in.PriceCents, in.FreeThresholdCents, in.SortOrder, in.Status); err != nil {
 		return "", err
 	}
@@ -190,7 +187,7 @@ func (r *ShippingRepo) UpdateRule(ctx context.Context, id string, in ShippingRul
 	 name=$1, country_codes=$2, min_amount_cents=$3, max_weight_g=$4,
 	 price_cents=$5, free_threshold_cents=$6, sort_order=$7, status=$8, updated_at=now()
 	 WHERE id=$9`
-	_, err := r.conn.ExecCtx(ctx, query, in.Name, formatArray(in.CountryCodes),
+	_, err := r.conn.ExecCtx(ctx, query, in.Name, pq.Array(normalizeCodes(in.CountryCodes)),
 		in.MinAmountCents, in.MaxWeightG, in.PriceCents, in.FreeThresholdCents, in.SortOrder, in.Status, id)
 	return err
 }
