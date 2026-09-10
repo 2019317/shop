@@ -21,30 +21,30 @@ func CreateOrder(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.CreateOrderReq
 		if err := httpx.Parse(r, &req); err != nil {
-			response.BadRequest(w, "invalid params")
+			badRequest(w, r, err, "invalid params")
 			return
 		}
 		if !validate.Email(req.Email) {
-			response.BadRequest(w, "invalid email")
+			badRequestMsg(w, r, "invalid email", "invalid email")
 			return
 		}
 		if len(req.Items) == 0 {
-			response.BadRequest(w, "cart is empty")
+			badRequestMsg(w, r, "cart is empty", "cart is empty")
 			return
 		}
 		if req.Currency == "" {
 			req.Currency = "USD"
 		}
 		if !validate.Currency(req.Currency) {
-			response.BadRequest(w, "invalid currency")
+			badRequestMsg(w, r, "invalid currency", "invalid currency")
 			return
 		}
 		if !validate.MaxLen(req.CustomerNote, 2000) {
-			response.BadRequest(w, "customer note is too long")
+			badRequestMsg(w, r, "customer note is too long", "customer note is too long")
 			return
 		}
 		if country, ok := req.ShippingAddress["country"].(string); !ok || !validate.Country(country) {
-			response.BadRequest(w, "invalid shipping country")
+			badRequestMsg(w, r, "invalid shipping country", "invalid shipping country")
 			return
 		}
 
@@ -53,25 +53,25 @@ func CreateOrder(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			logx.Errorf("create order error: %v", err)
 			switch err {
 			case shop.ErrVariantNotFound, shop.ErrVariantDisabled, shop.ErrEmptyCart:
-				response.BadRequest(w, "some items are unavailable")
+				badRequestMsg(w, r, err.Error(), "some items are unavailable")
 			case shop.ErrInvalidCoupon:
-				response.BadRequest(w, "invalid coupon code")
+				badRequestMsg(w, r, err.Error(), "invalid coupon code")
 			case shop.ErrCouponExpired:
-				response.BadRequest(w, "coupon has expired")
+				badRequestMsg(w, r, err.Error(), "coupon has expired")
 			case shop.ErrCouponNotStarted:
-				response.BadRequest(w, "coupon is not yet active")
+				badRequestMsg(w, r, err.Error(), "coupon is not yet active")
 			case shop.ErrCouponExhausted:
-				response.BadRequest(w, "coupon has reached its usage limit")
+				badRequestMsg(w, r, err.Error(), "coupon has reached its usage limit")
 			case shop.ErrCouponMinAmount:
-				response.BadRequest(w, "order does not meet the coupon minimum amount")
+				badRequestMsg(w, r, err.Error(), "order does not meet the coupon minimum amount")
 			case shop.ErrNoShippingRule:
-				response.BadRequest(w, "no shipping method available for the destination")
+				badRequestMsg(w, r, err.Error(), "no shipping method available for the destination")
 			default:
 				if err.Error() == "insufficient stock" {
-					response.BadRequest(w, "insufficient stock")
+					badRequestMsg(w, r, err.Error(), "insufficient stock")
 					return
 				}
-				response.ServerError(w, "create order failed")
+				serverError(w, r, err, "create order failed")
 			}
 			return
 		}
@@ -106,7 +106,7 @@ func PayNotify(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rawBody, err := io.ReadAll(r.Body)
 		if err != nil {
-			response.BadRequest(w, "invalid params")
+			badRequest(w, r, err, "invalid params")
 			return
 		}
 		defer r.Body.Close()
@@ -118,7 +118,7 @@ func PayNotify(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		var req types.PayNotifyReq
 		if err := json.Unmarshal(rawBody, &req); err != nil {
-			response.BadRequest(w, "invalid params")
+			badRequest(w, r, err, "invalid params")
 			return
 		}
 		if req.Provider == "" {
@@ -133,14 +133,14 @@ func PayNotify(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			req.Provider, req.EventId, req.AmountCents); err != nil {
 			logx.Errorf("mark paid error: %v", err)
 			if err == shop.ErrAmountMismatch {
-				response.BadRequest(w, "amount mismatch")
+				badRequestMsg(w, r, err.Error(), "amount mismatch")
 				return
 			}
 			if err == shop.ErrInvalidOrderState || err == shop.ErrOrderNotFound {
-				response.BadRequest(w, "invalid order")
+				badRequestMsg(w, r, err.Error(), "invalid order")
 				return
 			}
-			response.ServerError(w, "payment notify failed")
+			serverError(w, r, err, "payment notify failed")
 			return
 		}
 		response.OK(w, map[string]bool{"handled": true})

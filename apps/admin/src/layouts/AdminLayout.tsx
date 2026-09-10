@@ -8,6 +8,7 @@ import {
   LogoutOutlined,
   GiftOutlined,
   CarOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons'
 import { clearToken } from '../api/client'
 import { useI18n } from '../i18n/I18nProvider'
@@ -56,6 +57,7 @@ export default function AdminLayout() {
             { key: 'categories', icon: <TagsOutlined />, label: dict.menu.categories },
             { key: 'coupons', icon: <GiftOutlined />, label: dict.menu.coupons },
             { key: 'shipping', icon: <CarOutlined />, label: dict.menu.shipping },
+            { key: 'logs', icon: <FileTextOutlined />, label: dict.menu.logs },
           ]}
           onClick={({ key }) => navigate(`/${key}`)}
         />

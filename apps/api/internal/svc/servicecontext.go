@@ -10,6 +10,7 @@ import (
 	"github.com/yourname/stationery-shop/apps/api/internal/logic/admin"
 	shopLogic "github.com/yourname/stationery-shop/apps/api/internal/logic/shop"
 	"github.com/yourname/stationery-shop/apps/api/internal/pkg/event"
+	"github.com/yourname/stationery-shop/apps/api/internal/pkg/oplog"
 	"github.com/yourname/stationery-shop/apps/api/internal/pkg/payment"
 	"github.com/yourname/stationery-shop/apps/api/internal/pkg/storage"
 	"github.com/yourname/stationery-shop/apps/api/internal/repo"
@@ -24,6 +25,7 @@ type ServiceContext struct {
 	Redis   *redis.Redis
 	Storage *storage.Storage
 	Bus     *event.Bus
+	Logs    *oplog.Store
 
 	// 后台
 	AdminAuth     *admin.AuthLogic
@@ -76,6 +78,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Redis:   rds,
 		Storage: store,
 		Bus:     bus,
+		Logs:    oplog.NewStore(2000),
 
 		AdminAuth:     admin.NewAuthLogic(adminUserRepo, c.AdminAuth.AccessSecret, seconds(c.AdminAuth.AccessExpire)),
 		AdminProduct:  admin.NewProductLogic(productRepo),

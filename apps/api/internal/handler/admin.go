@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest/httpx"
 
 	"github.com/yourname/stationery-shop/apps/api/internal/logic/admin"
@@ -18,7 +17,7 @@ func AdminLogin(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.AdminLoginReq
 		if err := httpx.Parse(r, &req); err != nil {
-			response.BadRequest(w, "invalid params")
+			badRequest(w, r, err, "invalid params")
 			return
 		}
 		resp, err := svcCtx.AdminAuth.Login(r.Context(), req)
@@ -26,8 +25,7 @@ func AdminLogin(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			// 区分「凭据错误」与「系统错误」：
 			// 后者若也返回 401，会把真实的数据库/解析故障伪装成密码错误，极难排查
 			if !errors.Is(err, admin.ErrInvalidCredentials) {
-				logx.Errorf("admin login error: %v", err)
-				response.ServerError(w, "login failed")
+				serverError(w, r, err, "login failed")
 				return
 			}
 			response.Unauthorized(w, "invalid email or password")
@@ -141,11 +139,11 @@ func AdminCategoryCreate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.AdminCategoryReq
 		if err := httpx.Parse(r, &req); err != nil {
-			response.BadRequest(w, "invalid params")
+			badRequest(w, r, err, "invalid params")
 			return
 		}
 		if req.Name == "" || req.Slug == "" {
-			response.BadRequest(w, "name and slug are required")
+			badRequestMsg(w, r, "name and slug are required", "name and slug are required")
 			return
 		}
 		id, err := svcCtx.AdminCategory.Create(r.Context(), req)
@@ -165,7 +163,7 @@ func AdminCategoryUpdate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		var req types.AdminCategoryReq
 		if err := httpx.Parse(r, &req); err != nil {
-			response.BadRequest(w, "invalid params")
+			badRequest(w, r, err, "invalid params")
 			return
 		}
 		if err := svcCtx.AdminCategory.Update(r.Context(), id, req); err != nil {
@@ -195,17 +193,16 @@ func AdminAssetPresign(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.PresignReq
 		if err := httpx.Parse(r, &req); err != nil {
-			response.BadRequest(w, "invalid params")
+			badRequest(w, r, err, "invalid params")
 			return
 		}
 		resp, err := svcCtx.AdminAsset.Presign(r.Context(), req)
 		if err != nil {
 			if err == admin.ErrInvalidFileType {
-				response.BadRequest(w, "unsupported file type")
+				badRequestMsg(w, r, "unsupported file type", "unsupported file type")
 				return
 			}
-			logx.Errorf("asset presign error: %v", err)
-			response.ServerError(w, "presign failed")
+			serverError(w, r, err, "presign failed")
 			return
 		}
 		response.OK(w, resp)

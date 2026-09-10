@@ -277,6 +277,8 @@ make check       # 健康巡检，剩余内存 <150MB 会告警
 | POST | `/admin/shipping/rules` | 创建运费规则 |
 | PUT | `/admin/shipping/rules/:id` | 更新运费规则 |
 | DELETE | `/admin/shipping/rules/:id` | 停用运费规则 |
+| GET | `/admin/logs` | 请求日志查询（支持 `level` / `keyword` / `path`） |
+| DELETE | `/admin/logs` | 清空请求日志 |
 
 ## 九、订单与支付流程
 

@@ -30,6 +30,16 @@ import { useI18n } from '../i18n/I18nProvider'
 
 const IMG_BASE = import.meta.env.VITE_IMG_BASE_URL || ''
 
+// isValidJson 判断文本是否为合法的 JSON 对象（用于 Options 输入实时校验）
+function isValidJson(text: string): boolean {
+  try {
+    const parsed = JSON.parse(text || '{}')
+    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+  } catch {
+    return false
+  }
+}
+
 export default function ProductEdit() {
   const { id } = useParams()
   const isEdit = Boolean(id)
@@ -40,6 +50,8 @@ export default function ProductEdit() {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [zhTrans, setZhTrans] = useState<TranslationInput>({})
+  // 变体 Options 的原始文本（避免受控输入被 JSON.stringify 覆盖，导致无法正常编辑）
+  const [optionsText, setOptionsText] = useState<Record<number, string>>({})
   const navigate = useNavigate()
   const { message } = App.useApp()
   const { dict } = useI18n()
@@ -51,7 +63,14 @@ export default function ProductEdit() {
         .get<ProductInput>(`/admin/products/${id}`)
         .then((data) => {
           form.setFieldsValue(data)
-          setVariants(data.variants?.length ? data.variants : [emptyVariant()])
+          const loadedVariants = data.variants?.length ? data.variants : [emptyVariant()]
+          setVariants(loadedVariants)
+          // 用加载到的 options 初始化文本态，避免受控输入被覆盖
+          const textMap: Record<number, string> = {}
+          loadedVariants.forEach((v, i) => {
+            textMap[i] = JSON.stringify(v.options || {})
+          })
+          setOptionsText(textMap)
           setImages(data.images || [])
           if (data.translations?.zh) setZhTrans(data.translations.zh)
         })
@@ -382,13 +401,31 @@ export default function ProductEdit() {
                   </Form.Item>
                 </Col>
                 <Col span={10}>
-                  <Form.Item label="Options (JSON)">
+                  <Form.Item
+                    label="Options (JSON)"
+                    validateStatus={
+                      optionsText[idx] !== undefined && !isValidJson(optionsText[idx])
+                        ? 'error'
+                        : undefined
+                    }
+                    help={
+                      optionsText[idx] !== undefined && !isValidJson(optionsText[idx])
+                        ? 'Invalid JSON'
+                        : undefined
+                    }
+                  >
                     <Input
                       placeholder='{"cover":"Linen","size":"A5"}'
-                      value={JSON.stringify(v.options || {})}
+                      value={optionsText[idx] ?? JSON.stringify(v.options || {})}
                       onChange={(e) => {
+                        const text = e.target.value
+                        setOptionsText((s) => ({ ...s, [idx]: text }))
+                        // 输入合法 JSON 时才同步到 v.options；非法时保留原文，允许继续编辑
                         try {
-                          updateVariant(idx, 'options', JSON.parse(e.target.value || '{}'))
+                          const parsed = JSON.parse(text || '{}')
+                          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                            updateVariant(idx, 'options', parsed)
+                          }
                         } catch {
                           /* 允许编辑过程中出现非法 JSON */
                         }

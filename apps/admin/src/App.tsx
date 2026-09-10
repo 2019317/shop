@@ -7,6 +7,7 @@ import Categories from './pages/Categories'
 import Orders from './pages/Orders'
 import Coupons from './pages/Coupons'
 import Shipping from './pages/Shipping'
+import Logs from './pages/Logs'
 import { getToken } from './api/client'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="orders" element={<Orders />} />
         <Route path="coupons" element={<Coupons />} />
         <Route path="shipping" element={<Shipping />} />
+        <Route path="logs" element={<Logs />} />
       </Route>
     </Routes>
   )

@@ -61,11 +61,11 @@ func AdminCouponCreate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		id, err := svcCtx.AdminCoupon.Create(r.Context(), req)
 		if err != nil {
 			if err == admin.ErrCouponCodeExists {
-				response.BadRequest(w, "coupon code already exists")
+				badRequestMsg(w, r, "coupon code already exists", "coupon code already exists")
 				return
 			}
 			if err == admin.ErrInvalidCouponInput {
-				response.BadRequest(w, "invalid coupon input")
+				badRequestMsg(w, r, "invalid coupon input", "invalid coupon input")
 				return
 			}
 			serverError(w, r, err, "create failed")
@@ -84,12 +84,12 @@ func AdminCouponUpdate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		var req types.AdminCouponReq
 		if err := httpx.Parse(r, &req); err != nil {
-			response.BadRequest(w, "invalid params")
+			badRequest(w, r, err, "invalid params")
 			return
 		}
 		if err := svcCtx.AdminCoupon.Update(r.Context(), id, req); err != nil {
 			if err == admin.ErrInvalidCouponInput {
-				response.BadRequest(w, "invalid coupon input")
+				badRequestMsg(w, r, "invalid coupon input", "invalid coupon input")
 				return
 			}
 			serverError(w, r, err, "update failed")
@@ -108,12 +108,12 @@ func AdminCouponSetStatus(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		var req types.SetCouponStatusReq
 		if err := httpx.Parse(r, &req); err != nil {
-			response.BadRequest(w, "invalid params")
+			badRequest(w, r, err, "invalid params")
 			return
 		}
 		if err := svcCtx.AdminCoupon.SetStatus(r.Context(), id, req.Status); err != nil {
 			if err == admin.ErrInvalidCouponInput {
-				response.BadRequest(w, "invalid status")
+				badRequestMsg(w, r, "invalid status", "invalid status")
 				return
 			}
 			serverError(w, r, err, "update failed")
@@ -130,7 +130,7 @@ func CouponValidate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.ValidateCouponReq
 		if err := httpx.Parse(r, &req); err != nil {
-			response.BadRequest(w, "invalid params")
+			badRequest(w, r, err, "invalid params")
 			return
 		}
 		data, err := svcCtx.ShopOrder.ValidateCoupon(r.Context(), req.Code, req.Subtotal)

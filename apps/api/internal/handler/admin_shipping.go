@@ -41,7 +41,7 @@ func AdminShippingRuleCreate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		id, err := svcCtx.AdminShipping.CreateRule(r.Context(), req)
 		if err != nil {
 			if err == admin.ErrInvalidShippingRule {
-				response.BadRequest(w, "invalid shipping rule")
+				badRequestMsg(w, r, "invalid shipping rule", "invalid shipping rule")
 				return
 			}
 			serverError(w, r, err, "create failed")
@@ -60,12 +60,12 @@ func AdminShippingRuleUpdate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		var req types.AdminShippingRuleReq
 		if err := httpx.Parse(r, &req); err != nil {
-			response.BadRequest(w, "invalid params")
+			badRequest(w, r, err, "invalid params")
 			return
 		}
 		if err := svcCtx.AdminShipping.UpdateRule(r.Context(), id, req); err != nil {
 			if err == admin.ErrInvalidShippingRule {
-				response.BadRequest(w, "invalid shipping rule")
+				badRequestMsg(w, r, "invalid shipping rule", "invalid shipping rule")
 				return
 			}
 			serverError(w, r, err, "update failed")
@@ -103,7 +103,7 @@ func AdminOrderMarkDelivered(svcCtx *svc.ServiceContext) http.HandlerFunc {
 				return
 			}
 			if err == admin.ErrNoShipment {
-				response.BadRequest(w, "order has no shipment")
+				badRequestMsg(w, r, "order has no shipment", "order has no shipment")
 				return
 			}
 			serverError(w, r, err, "update failed")

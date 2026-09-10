@@ -18,12 +18,13 @@ const routePrefix = "/api/v1"
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	cors := middleware.NewCorsHandlerFunc(serverCtx.Config.CorsOrigins)
 	security := middleware.NewSecurityHeadersHandlerFunc()
+	accessLog := middleware.NewOpLogHandlerFunc(serverCtx.Logs)
 	adminAuth := middleware.AdminAuthHandlerFunc(serverCtx.Config.AdminAuth.AccessSecret)
 	requireAdmin := middleware.RequireRole("admin")
 
 	// ---------------- 前台公开读接口 ----------------
 	server.AddRoutes(rest.WithMiddlewares(
-		[]rest.Middleware{cors, security},
+		[]rest.Middleware{cors, security, accessLog},
 		rest.Route{Method: http.MethodGet, Path: "/healthz", Handler: Healthz()},
 		rest.Route{Method: http.MethodGet, Path: "/readyz", Handler: Readyz(serverCtx)},
 		rest.Route{Method: http.MethodGet, Path: "/products", Handler: ProductList(serverCtx)},
@@ -37,7 +38,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	// ---------------- 下单 / 订单查询 / 支付回调：限流 ----------------
 	orderLimit := middleware.RateLimit(20, time.Minute)
 	server.AddRoutes(rest.WithMiddlewares(
-		[]rest.Middleware{cors, security, orderLimit},
+		[]rest.Middleware{cors, security, accessLog, orderLimit},
 		rest.Route{Method: http.MethodPost, Path: "/orders", Handler: CreateOrder(serverCtx)},
 		rest.Route{Method: http.MethodGet, Path: "/orders/:order_no", Handler: OrderDetail(serverCtx)},
 		rest.Route{Method: http.MethodPost, Path: "/payments/notify", Handler: PayNotify(serverCtx)},
@@ -46,13 +47,13 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	// ---------------- 后台登录：限流（防爆破） ----------------
 	loginLimit := middleware.RateLimit(10, time.Minute)
 	server.AddRoutes(rest.WithMiddlewares(
-		[]rest.Middleware{cors, security, loginLimit},
+		[]rest.Middleware{cors, security, accessLog, loginLimit},
 		rest.Route{Method: http.MethodPost, Path: "/admin/auth/login", Handler: AdminLogin(serverCtx)},
 	), rest.WithPrefix(routePrefix))
 
 	// ---------------- 后台常规接口（需 JWT） ----------------
 	server.AddRoutes(rest.WithMiddlewares(
-		[]rest.Middleware{cors, security, adminAuth},
+		[]rest.Middleware{cors, security, accessLog, adminAuth},
 		rest.Route{Method: http.MethodGet, Path: "/admin/products", Handler: AdminProductList(serverCtx)},
 		rest.Route{Method: http.MethodGet, Path: "/admin/products/:id", Handler: AdminProductDetail(serverCtx)},
 		rest.Route{Method: http.MethodPost, Path: "/admin/products", Handler: AdminProductCreate(serverCtx)},
@@ -79,11 +80,15 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		rest.Route{Method: http.MethodPost, Path: "/admin/shipping/rules", Handler: AdminShippingRuleCreate(serverCtx)},
 		rest.Route{Method: http.MethodPut, Path: "/admin/shipping/rules/:id", Handler: AdminShippingRuleUpdate(serverCtx)},
 		rest.Route{Method: http.MethodDelete, Path: "/admin/shipping/rules/:id", Handler: AdminShippingRuleDelete(serverCtx)},
+
+		// 日志管理：查询/清空请求日志
+		rest.Route{Method: http.MethodGet, Path: "/admin/logs", Handler: AdminLogList(serverCtx)},
+		rest.Route{Method: http.MethodDelete, Path: "/admin/logs", Handler: AdminLogClear(serverCtx)},
 	), rest.WithPrefix(routePrefix))
 
 	// ---------------- 后台高危操作（仅 admin 角色） ----------------
 	server.AddRoutes(rest.WithMiddlewares(
-		[]rest.Middleware{cors, security, adminAuth, requireAdmin},
+		[]rest.Middleware{cors, security, accessLog, adminAuth, requireAdmin},
 		rest.Route{Method: http.MethodDelete, Path: "/admin/products/:id", Handler: AdminProductDelete(serverCtx)},
 		rest.Route{Method: http.MethodDelete, Path: "/admin/categories/:id", Handler: AdminCategoryDelete(serverCtx)},
 		rest.Route{Method: http.MethodPost, Path: "/admin/orders/:id/ship", Handler: AdminOrderShip(serverCtx)},
