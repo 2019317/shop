@@ -79,6 +79,9 @@ func (r *CategoryRepo) Create(ctx context.Context, in CategoryInput) (string, er
 	var id string
 	if err := r.conn.QueryRowCtx(ctx, &id, query, in.ParentId, in.Name, in.Slug,
 		in.Description, in.ImageKey, in.SortOrder, in.Status); err != nil {
+		if isUniqueViolation(err) {
+			return "", ErrSlugConflict
+		}
 		return "", err
 	}
 	if err := r.saveTranslations(ctx, id, in.Translations); err != nil {
@@ -93,6 +96,9 @@ func (r *CategoryRepo) Update(ctx context.Context, id string, in CategoryInput) 
 	 WHERE id=$8`
 	if _, err := r.conn.ExecCtx(ctx, query, in.ParentId, in.Name, in.Slug,
 		in.Description, in.ImageKey, in.SortOrder, in.Status, id); err != nil {
+		if isUniqueViolation(err) {
+			return ErrSlugConflict
+		}
 		return err
 	}
 	return r.saveTranslations(ctx, id, in.Translations)

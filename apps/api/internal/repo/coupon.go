@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -10,6 +11,9 @@ import (
 
 	"github.com/yourname/stationery-shop/apps/api/internal/model"
 )
+
+// ErrCouponCodeConflict 券码已被占用
+var ErrCouponCodeConflict = errors.New("coupon code already exists")
 
 // CouponRepo 优惠券数据访问（promotion 域）
 type CouponRepo struct {
@@ -133,10 +137,15 @@ func (r *CouponRepo) FindById(ctx context.Context, id string) (*model.Coupon, er
 	return &c, nil
 }
 
-// CodeExists 判断券码是否已被占用（可排除某个 id）
+// CodeExists 判断券码是否已被占用（可排除某个 id，排除时传合法 uuid，创建时传空串）
 func (r *CouponRepo) CodeExists(ctx context.Context, code, excludeId string) (bool, error) {
-	var exists bool
-	query := `SELECT EXISTS(SELECT 1 FROM promotion.coupons WHERE lower(code)=lower($1) AND ($2 = '' OR id <> $2::uuid))`
+	// 注意：不能用 id <> $2::uuid 直接比较，空串转 uuid 会报错；
+	// 用 NULLIF 将空串转为 NULL，比较结果为 NULL（视作不排除），避免类型转换异常。
+	query := `SELECT EXISTS(
+		SELECT 1 FROM promotion.coupons
+		WHERE lower(code)=lower($1)
+		  AND ($2 = '' OR id <> NULLIF($2, '')::uuid)
+	)`
 	if err := r.conn.QueryRowCtx(ctx, &exists, query, code, excludeId); err != nil {
 		return false, err
 	}
@@ -151,6 +160,9 @@ func (r *CouponRepo) Create(ctx context.Context, in CouponInput) (string, error)
 	var id string
 	if err := r.conn.QueryRowCtx(ctx, &id, query, in.Code, in.Type, in.Value,
 		in.MinAmountCents, in.MaxUses, in.StartsAt, in.EndsAt, in.Status); err != nil {
+		if isUniqueViolation(err) {
+			return "", ErrCouponCodeConflict
+		}
 		return "", err
 	}
 	return id, nil

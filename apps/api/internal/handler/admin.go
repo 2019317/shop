@@ -8,6 +8,7 @@ import (
 
 	"github.com/yourname/stationery-shop/apps/api/internal/logic/admin"
 	"github.com/yourname/stationery-shop/apps/api/internal/pkg/response"
+	"github.com/yourname/stationery-shop/apps/api/internal/repo"
 	"github.com/yourname/stationery-shop/apps/api/internal/svc"
 	"github.com/yourname/stationery-shop/apps/api/internal/types"
 )
@@ -83,6 +84,10 @@ func AdminProductCreate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		id, err := svcCtx.AdminProduct.Create(r.Context(), req)
 		if err != nil {
+			if err == repo.ErrSkuConflict {
+				badRequestMsg(w, r, err.Error(), "sku code already used by another product")
+				return
+			}
 			serverError(w, r, err, "create failed")
 			return
 		}
@@ -102,6 +107,10 @@ func AdminProductUpdate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		if err := svcCtx.AdminProduct.Update(r.Context(), id, req); err != nil {
+			if err == repo.ErrSkuConflict {
+				badRequestMsg(w, r, err.Error(), "sku code already used by another product")
+				return
+			}
 			serverError(w, r, err, "update failed")
 			return
 		}
@@ -148,6 +157,10 @@ func AdminCategoryCreate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		id, err := svcCtx.AdminCategory.Create(r.Context(), req)
 		if err != nil {
+			if err == repo.ErrSlugConflict {
+				badRequestMsg(w, r, err.Error(), "slug already exists")
+				return
+			}
 			serverError(w, r, err, "create failed")
 			return
 		}
@@ -167,6 +180,10 @@ func AdminCategoryUpdate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		if err := svcCtx.AdminCategory.Update(r.Context(), id, req); err != nil {
+			if err == repo.ErrSlugConflict {
+				badRequestMsg(w, r, err.Error(), "slug already exists")
+				return
+			}
 			serverError(w, r, err, "update failed")
 			return
 		}

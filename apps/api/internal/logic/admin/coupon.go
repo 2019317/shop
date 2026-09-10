@@ -76,7 +76,11 @@ func (l *CouponLogic) Create(ctx context.Context, req types.AdminCouponReq) (str
 	if exists {
 		return "", ErrCouponCodeExists
 	}
-	return l.couponRepo.Create(ctx, in)
+	id, err := l.couponRepo.Create(ctx, in)
+	if err == repo.ErrCouponCodeConflict {
+		return "", ErrCouponCodeExists
+	}
+	return id, err
 }
 
 func (l *CouponLogic) Update(ctx context.Context, id string, req types.AdminCouponReq) error {

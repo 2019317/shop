@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -13,6 +14,17 @@ import (
 	"github.com/yourname/stationery-shop/apps/api/internal/model"
 	"github.com/yourname/stationery-shop/apps/api/internal/pkg/i18n"
 )
+
+// ErrSkuConflict 变体 SKU 已被其他商品占用
+var ErrSkuConflict = errors.New("sku code already used by another product")
+
+// ErrSlugConflict slug 已被占用
+var ErrSlugConflict = errors.New("slug already exists")
+
+// isUniqueViolation 判断是否为 PostgreSQL 唯一约束冲突（SQLSTATE 23505）
+func isUniqueViolation(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "23505")
+}
 
 type ProductRepo struct {
 	conn sqlx.SqlConn
@@ -419,6 +431,9 @@ func (r *ProductRepo) Create(ctx context.Context, in CreateProductInput) (string
 			in.Title, in.Slug, in.Subtitle, in.Description, in.CategoryId, in.Status,
 			in.PriceCents, in.Currency, string(attrJSON), pq.Array(tags), in.SeoTitle, in.SeoDesc,
 		); err != nil {
+			if isUniqueViolation(err) {
+				return ErrSlugConflict
+			}
 			return err
 		}
 
@@ -439,6 +454,9 @@ func (r *ProductRepo) Create(ctx context.Context, in CreateProductInput) (string
 				v.PriceCents, v.CompareAtCents, v.WeightG, v.ImageKey, v.SortOrder)
 			vStmt.Close()
 			if err != nil {
+				if isUniqueViolation(err) {
+					return ErrSkuConflict
+				}
 				return err
 			}
 
@@ -499,6 +517,9 @@ func (r *ProductRepo) Update(ctx context.Context, id string, in CreateProductInp
 		if _, err := stmt.ExecCtx(ctx, in.Title, in.Slug, in.Subtitle, in.Description, in.CategoryId,
 			in.Status, in.PriceCents, in.Currency, string(attrJSON), pq.Array(tags),
 			in.SeoTitle, in.SeoDesc, id); err != nil {
+			if isUniqueViolation(err) {
+				return ErrSlugConflict
+			}
 			return err
 		}
 
@@ -512,6 +533,9 @@ func (r *ProductRepo) Update(ctx context.Context, id string, in CreateProductInp
 			if v.Options == nil {
 				optJSON = []byte("{}")
 			}
+			// 变体 upsert：SKU 全局唯一，但只允许“命中本商品的旧变体”时更新。
+			// 若同一 SKU 属于其他商品，WHERE 不成立 → 不更新任何行 → RETURNING 无结果，
+			// 由下方判断返回 ErrSkuConflict，避免误改其他商品的数据。
 			upsert := `INSERT INTO catalog.product_variants
 			 (product_id, sku_code, title, options, price_cents, compare_at_cents, weight_g, image_key, status, sort_order)
 			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'active',$9)
@@ -519,6 +543,7 @@ func (r *ProductRepo) Update(ctx context.Context, id string, in CreateProductInp
 				title=EXCLUDED.title, options=EXCLUDED.options, price_cents=EXCLUDED.price_cents,
 				compare_at_cents=EXCLUDED.compare_at_cents, weight_g=EXCLUDED.weight_g,
 				image_key=EXCLUDED.image_key, status='active', sort_order=EXCLUDED.sort_order
+			 WHERE catalog.product_variants.product_id = EXCLUDED.product_id
 			 RETURNING id`
 			vStmt, err := session.Prepare(upsert)
 			if err != nil {
@@ -528,6 +553,10 @@ func (r *ProductRepo) Update(ctx context.Context, id string, in CreateProductInp
 			err = vStmt.QueryRowCtx(ctx, &variantId, id, v.SkuCode, v.Title, string(optJSON),
 				v.PriceCents, v.CompareAtCents, v.WeightG, v.ImageKey, v.SortOrder)
 			vStmt.Close()
+			if err == sql.ErrNoRows {
+				// 冲突的 SKU 属于其他商品
+				return ErrSkuConflict
+			}
 			if err != nil {
 				return err
 			}
