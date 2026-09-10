@@ -78,7 +78,7 @@ func AdminProductCreate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		if req.Title == "" || req.Slug == "" {
-			response.BadRequest(w, "title and slug are required")
+			badRequestMsg(w, r, "title and slug are required", "title and slug are required")
 			return
 		}
 		id, err := svcCtx.AdminProduct.Create(r.Context(), req)

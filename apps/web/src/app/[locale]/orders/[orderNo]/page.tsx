@@ -132,7 +132,26 @@ export default async function OrderPage({
             background: 'var(--color-surface)',
           }}
         >
-          <h3 style={{ marginTop: 0 }}>{dict.order.tracking}</h3>
+          <h3 style={{ marginTop: 0 }}>
+            {dict.order.tracking}
+            {order.shipment_status && (
+              <span
+                style={{
+                  marginLeft: 8,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  padding: '2px 8px',
+                  borderRadius: 10,
+                  background: 'var(--color-accent)',
+                  color: '#fff',
+                }}
+              >
+                {order.shipment_status === 'delivered'
+                  ? dict.order.shipStatusDelivered
+                  : dict.order.shipStatusShipped}
+              </span>
+            )}
+          </h3>
           <p style={{ margin: 0, fontSize: 14 }}>
             {order.carrier} — {order.tracking_no}
             {order.tracking_url && (

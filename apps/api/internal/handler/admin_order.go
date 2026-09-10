@@ -56,17 +56,17 @@ func AdminOrderShip(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		var req types.ShipOrderReq
 		if err := httpx.Parse(r, &req); err != nil {
-			response.BadRequest(w, "invalid params")
+			badRequest(w, r, err, "invalid params")
 			return
 		}
 		if req.TrackingNo == "" {
-			response.BadRequest(w, "tracking_no is required")
+			badRequestMsg(w, r, "tracking_no is required", "tracking_no is required")
 			return
 		}
 
 		if err := svcCtx.AdminOrder.Ship(r.Context(), id, req); err != nil {
 			if err == admin.ErrOrderNotPaid {
-				response.BadRequest(w, "only paid orders can be shipped")
+				badRequestMsg(w, r, "only paid orders can be shipped", "only paid orders can be shipped")
 				return
 			}
 			serverError(w, r, err, "ship failed")
@@ -83,14 +83,17 @@ func AdminOrderCancel(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			id = pathParam(r, "id")
 		}
 		var req types.CancelOrderReq
-		_ = httpx.Parse(r, &req)
+		if err := httpx.Parse(r, &req); err != nil {
+			badRequest(w, r, err, "invalid params")
+			return
+		}
 		if req.Reason == "" {
 			req.Reason = "cancelled by admin"
 		}
 
 		if err := svcCtx.AdminOrder.Cancel(r.Context(), id, req.Reason); err != nil {
 			if err == admin.ErrOrderNotPending {
-				response.BadRequest(w, "only pending orders can be cancelled")
+				badRequestMsg(w, r, "only pending orders can be cancelled", "only pending orders can be cancelled")
 				return
 			}
 			serverError(w, r, err, "cancel failed")

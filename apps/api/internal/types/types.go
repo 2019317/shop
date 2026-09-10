@@ -223,6 +223,7 @@ type OrderVO struct {
 	Carrier        string                 `json:"carrier,omitempty"`
 	TrackingNo     string                 `json:"tracking_no,omitempty"`
 	TrackingUrl    string                 `json:"tracking_url,omitempty"`
+	ShipmentStatus string                 `json:"shipment_status,omitempty"`
 	CreatedAt      string                 `json:"created_at"`
 }
 

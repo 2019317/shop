@@ -431,6 +431,7 @@ func (l *OrderLogic) toVO(ctx context.Context, order *model.OrderDetail, intent 
 		vo.TrackingNo = order.Shipment.TrackingNo
 		vo.Carrier = order.Shipment.Carrier
 		vo.TrackingUrl = order.Shipment.TrackingUrl
+		vo.ShipmentStatus = order.Shipment.Status
 	}
 	if intent != nil {
 		vo.ClientSecret = intent.ClientSecret

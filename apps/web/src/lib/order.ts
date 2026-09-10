@@ -59,6 +59,7 @@ export interface OrderVO {
   carrier?: string
   tracking_no?: string
   tracking_url?: string
+  shipment_status?: string
   created_at: string
 }
 
