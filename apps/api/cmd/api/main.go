@@ -22,7 +22,8 @@ func main() {
 	conf.MustLoad(*configFile, &c)
 
 	// 所有接口统一带 /api/v1 前缀，便于后续版本演进
-	server := rest.MustNewServer(c.RestConf, rest.WithPrefix("/api/v1"))
+	// 统一 /api/v1 前缀由 handler 注册路由时通过 rest.WithPrefix 承载
+	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
 
 	ctx := svc.NewServiceContext(c)
