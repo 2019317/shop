@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
+	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest/httpx"
 
 	"github.com/yourname/stationery-shop/apps/api/internal/logic/admin"
@@ -21,6 +23,13 @@ func AdminLogin(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		resp, err := svcCtx.AdminAuth.Login(r.Context(), req)
 		if err != nil {
+			// 区分「凭据错误」与「系统错误」：
+			// 后者若也返回 401，会把真实的数据库/解析故障伪装成密码错误，极难排查
+			if !errors.Is(err, admin.ErrInvalidCredentials) {
+				logx.Errorf("admin login error: %v", err)
+				response.ServerError(w, "login failed")
+				return
+			}
 			response.Unauthorized(w, "invalid email or password")
 			return
 		}
