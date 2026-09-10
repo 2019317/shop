@@ -21,6 +21,17 @@ var ErrSkuConflict = errors.New("sku code already used by another product")
 // ErrSlugConflict slug 已被占用
 var ErrSlugConflict = errors.New("slug already exists")
 
+// genSku 为未填写 SKU 的变体生成稳定且唯一的 SKU：{slug}-{序号}
+// 前端允许留空 SKU，但 sku_code 列有全局唯一约束，因此这里兜底生成，避免空串冲突。
+func genSku(slug string, index int) string {
+	base := strings.ToUpper(strings.TrimSpace(slug))
+	base = strings.ReplaceAll(base, " ", "-")
+	if base == "" {
+		base = "SKU"
+	}
+	return fmt.Sprintf("%s-%d", base, index+1)
+}
+
 // isUniqueViolation 判断是否为 PostgreSQL 唯一约束冲突（SQLSTATE 23505）
 func isUniqueViolation(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "23505")
@@ -34,9 +45,10 @@ func NewProductRepo(conn sqlx.SqlConn) *ProductRepo {
 	return &ProductRepo{conn: conn}
 }
 
-const productColumns = `id, title, slug, subtitle, description, category_id, status,
-	price_cents, currency, attributes::text as attributes, tags::text as tags,
-	seo_title, seo_description, published_at, created_at, updated_at`
+// productColumns 后台详情列（限定 p. 前缀，因查询会 JOIN categories，二者都有 id）
+const productColumns = `p.id, p.title, p.slug, p.subtitle, p.description, p.category_id, p.status,
+	p.price_cents, p.currency, p.attributes::text as attributes, p.tags::text as tags,
+	p.seo_title, p.seo_description, p.published_at, p.created_at, p.updated_at`
 
 // productColumnsLocalized 带翻译覆盖的列：
 // 翻译存在且非空则使用翻译，否则回落主表（默认语言）内容
@@ -437,10 +449,14 @@ func (r *ProductRepo) Create(ctx context.Context, in CreateProductInput) (string
 			return err
 		}
 
-		for _, v := range in.Variants {
+		for i, v := range in.Variants {
 			optJSON, _ := json.Marshal(v.Options)
 			if v.Options == nil {
 				optJSON = []byte("{}")
+			}
+			sku := strings.TrimSpace(v.SkuCode)
+			if sku == "" {
+				sku = genSku(in.Slug, i)
 			}
 			insertVariant := `INSERT INTO catalog.product_variants
 			 (product_id, sku_code, title, options, price_cents, compare_at_cents, weight_g, image_key, sort_order)
@@ -450,7 +466,7 @@ func (r *ProductRepo) Create(ctx context.Context, in CreateProductInput) (string
 				return err
 			}
 			var variantId string
-			err = vStmt.QueryRowCtx(ctx, &variantId, productId, v.SkuCode, v.Title, string(optJSON),
+			err = vStmt.QueryRowCtx(ctx, &variantId, productId, sku, v.Title, string(optJSON),
 				v.PriceCents, v.CompareAtCents, v.WeightG, v.ImageKey, v.SortOrder)
 			vStmt.Close()
 			if err != nil {
@@ -528,10 +544,14 @@ func (r *ProductRepo) Update(ctx context.Context, id string, in CreateProductInp
 			`UPDATE catalog.product_variants SET status='disabled' WHERE product_id=$1`, id); err != nil {
 			return err
 		}
-		for _, v := range in.Variants {
+		for i, v := range in.Variants {
 			optJSON, _ := json.Marshal(v.Options)
 			if v.Options == nil {
 				optJSON = []byte("{}")
+			}
+			sku := strings.TrimSpace(v.SkuCode)
+			if sku == "" {
+				sku = genSku(in.Slug, i)
 			}
 			// 变体 upsert：SKU 全局唯一，但只允许“命中本商品的旧变体”时更新。
 			// 若同一 SKU 属于其他商品，WHERE 不成立 → 不更新任何行 → RETURNING 无结果，
@@ -550,7 +570,7 @@ func (r *ProductRepo) Update(ctx context.Context, id string, in CreateProductInp
 				return err
 			}
 			var variantId string
-			err = vStmt.QueryRowCtx(ctx, &variantId, id, v.SkuCode, v.Title, string(optJSON),
+			err = vStmt.QueryRowCtx(ctx, &variantId, id, sku, v.Title, string(optJSON),
 				v.PriceCents, v.CompareAtCents, v.WeightG, v.ImageKey, v.SortOrder)
 			vStmt.Close()
 			if err == sql.ErrNoRows {

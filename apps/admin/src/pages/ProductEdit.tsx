@@ -337,8 +337,9 @@ export default function ProductEdit() {
               <Divider orientation="left">Variant {idx + 1}</Divider>
               <Row gutter={16}>
                 <Col span={6}>
-                  <Form.Item label="SKU Code">
+                  <Form.Item label="SKU Code" tooltip="留空将自动生成（基于 slug + 序号）">
                     <Input
+                      placeholder="Auto if empty"
                       value={v.sku_code}
                       onChange={(e) => updateVariant(idx, 'sku_code', e.target.value)}
                     />
