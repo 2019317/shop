@@ -103,7 +103,7 @@ func (l *ProductLogic) Detail(ctx context.Context, id string) (*types.AdminProdu
 			Subtitle:    tr.Subtitle,
 			Description: tr.Description,
 			SeoTitle:    tr.SeoTitle,
-			SeoDesc:     tr.SeoDescription,
+			SeoDescription: tr.SeoDescription,
 		}
 	}
 	return req, nil
@@ -151,7 +151,7 @@ func (l *ProductLogic) Create(ctx context.Context, req types.AdminProductReq) (s
 			ObjectKey: img.ObjectKey, Alt: img.Alt, SortOrder: img.SortOrder,
 		})
 	}
-	in.Translations = req.Translations
+	in.Translations = toTranslations(req.Translations)
 
 	return l.productRepo.Create(ctx, in)
 }
@@ -191,7 +191,7 @@ func (l *ProductLogic) Update(ctx context.Context, id string, req types.AdminPro
 			ObjectKey: img.ObjectKey, Alt: img.Alt, SortOrder: img.SortOrder,
 		})
 	}
-	in.Translations = req.Translations
+	in.Translations = toTranslations(req.Translations)
 	return l.productRepo.Update(ctx, id, in)
 }
 
@@ -222,6 +222,24 @@ func parseStringArray(raw string) []string {
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
 		out = append(out, strings.Trim(p, `"`))
+	}
+	return out
+}
+
+// toTranslations 将 API 层翻译结构转换为 repo 层结构
+func toTranslations(src map[string]types.TranslationInput) map[string]repo.TranslationInput {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make(map[string]repo.TranslationInput, len(src))
+	for locale, tr := range src {
+		out[locale] = repo.TranslationInput{
+			Title:          tr.Title,
+			Subtitle:       tr.Subtitle,
+			Description:    tr.Description,
+			SeoTitle:       tr.SeoTitle,
+			SeoDescription: tr.SeoDescription,
+		}
 	}
 	return out
 }

@@ -181,7 +181,15 @@ func (l *OrderLogic) CreateOrder(ctx context.Context, req types.CreateOrderReq) 
 		},
 	})
 
-	return l.toVO(ctx, order, intent)
+	// 重新加载带明细的订单（含 items / payment），再转换为 VO
+	detail, err := l.orderRepo.FindById(ctx, order.Id)
+	if err != nil {
+		return nil, err
+	}
+	if detail == nil {
+		return nil, ErrOrderNotFound
+	}
+	return l.toVO(ctx, detail, intent)
 }
 
 // MarkPaid 支付成功回调处理（幂等）
