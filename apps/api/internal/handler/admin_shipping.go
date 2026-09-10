@@ -35,7 +35,7 @@ func AdminShippingRuleCreate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.AdminShippingRuleReq
 		if err := httpx.Parse(r, &req); err != nil {
-			response.BadRequest(w, "invalid params")
+			badRequest(w, r, err, "invalid params")
 			return
 		}
 		id, err := svcCtx.AdminShipping.CreateRule(r.Context(), req)

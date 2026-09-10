@@ -15,3 +15,9 @@ func serverError(w http.ResponseWriter, r *http.Request, err error, msg string) 
 	logx.Errorf("%s %s error: %v", r.Method, r.URL.Path, err)
 	response.ServerError(w, msg)
 }
+
+// badRequest 参数解析失败时记录具体原因，便于定位前端提交的结构问题
+func badRequest(w http.ResponseWriter, r *http.Request, err error, msg string) {
+	logx.Errorf("%s %s bad request: %v", r.Method, r.URL.Path, err)
+	response.BadRequest(w, msg)
+}

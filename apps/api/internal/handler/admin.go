@@ -76,7 +76,7 @@ func AdminProductCreate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.AdminProductReq
 		if err := httpx.Parse(r, &req); err != nil {
-			response.BadRequest(w, "invalid params")
+			badRequest(w, r, err, "invalid params")
 			return
 		}
 		if req.Title == "" || req.Slug == "" {
@@ -100,7 +100,7 @@ func AdminProductUpdate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		var req types.AdminProductReq
 		if err := httpx.Parse(r, &req); err != nil {
-			response.BadRequest(w, "invalid params")
+			badRequest(w, r, err, "invalid params")
 			return
 		}
 		if err := svcCtx.AdminProduct.Update(r.Context(), id, req); err != nil {

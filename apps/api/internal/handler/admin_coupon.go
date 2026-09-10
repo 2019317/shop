@@ -55,7 +55,7 @@ func AdminCouponCreate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.AdminCouponReq
 		if err := httpx.Parse(r, &req); err != nil {
-			response.BadRequest(w, "invalid params")
+			badRequest(w, r, err, "invalid params")
 			return
 		}
 		id, err := svcCtx.AdminCoupon.Create(r.Context(), req)
