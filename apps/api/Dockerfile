@@ -22,7 +22,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 # ---------------- 运行阶段 ----------------
 FROM alpine:3.20
 
-RUN apk add --no-cache ca-certificates tzdata wget \
+RUN apk add --no-cache ca-certificates tzdata wget gettext \
     && addgroup -S app -g 10001 \
     && adduser -S -G app -u 10001 app
 

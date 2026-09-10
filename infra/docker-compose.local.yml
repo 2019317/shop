@@ -62,12 +62,13 @@ services:
 
   api:
     build:
-      context: ../..
+      context: ..
       dockerfile: apps/api/Dockerfile
     container_name: shop-api
     restart: unless-stopped
     # 直接用 api.yaml.example（其内部 ${VAR} 从 .env 注入）
-    command: ["/app/api", "-f", "/app/etc/api.yaml.example"]
+    # 启动前用 envsubst 把 ${VAR} 渲染成真实值（来自 env_file 的 .env）
+    command: ["sh", "-c", "envsubst < /app/etc/api.yaml.example > /app/etc/api.yaml && exec /app/api -f /app/etc/api.yaml"]
     env_file:
       - ../.env
     environment:
