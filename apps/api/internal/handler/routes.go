@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/zeromicro/go-zero/rest"
 
@@ -16,7 +15,7 @@ const routePrefix = "/api/v1"
 // RegisterHandlers 注册路由
 // 分层约定：handler 只做参数绑定与响应封装，业务逻辑一律下沉到 logic
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
-	cors := middleware.CORSHandlerFunc(strings.Split(serverCtx.Config.CorsOrigins, ","))
+	cors := middleware.NewCorsHandlerFunc(serverCtx.Config.CorsOrigins)
 
 	// ---------------- 前台公开接口 ----------------
 	server.AddRoutes(rest.WithMiddlewares(
