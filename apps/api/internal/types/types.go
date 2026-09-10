@@ -89,47 +89,47 @@ type CategoryVO struct {
 type AdminProductReq struct {
 	Title       string                 `json:"title"`
 	Slug        string                 `json:"slug"`
-	Subtitle    string                 `json:"subtitle"`
-	Description string                 `json:"description"`
-	CategoryId  string                 `json:"category_id"`
-	Status      string                 `json:"status"`
-	Currency    string                 `json:"currency"`
-	Attributes  map[string]interface{} `json:"attributes"`
-	Tags        []string               `json:"tags"`
-	SeoTitle    string                 `json:"seo_title"`
-	SeoDesc     string                 `json:"seo_description"`
-	Variants    []AdminVariantReq      `json:"variants"`
-	Images      []AdminImageReq        `json:"images"`
+	Subtitle    string                 `json:"subtitle,optional"`
+	Description string                 `json:"description,optional"`
+	CategoryId  string                 `json:"category_id,optional"`
+	Status      string                 `json:"status,optional"`
+	Currency    string                 `json:"currency,optional"`
+	Attributes  map[string]interface{} `json:"attributes,optional"`
+	Tags        []string               `json:"tags,optional"`
+	SeoTitle    string                 `json:"seo_title,optional"`
+	SeoDesc     string                 `json:"seo_description,optional"`
+	Variants    []AdminVariantReq      `json:"variants,optional"`
+	Images      []AdminImageReq        `json:"images,optional"`
 	// key 为 locale（如 "zh"），value 为该语言内容
-	Translations map[string]TranslationInput `json:"translations"`
+	Translations map[string]TranslationInput `json:"translations,optional"`
 }
 
 type AdminVariantReq struct {
-	SkuCode        string                 `json:"sku_code"`
-	Title          string                 `json:"title"`
-	Options        map[string]interface{} `json:"options"`
-	PriceCents     int64                  `json:"price_cents"`
-	CompareAtCents int64                  `json:"compare_at_cents"`
-	WeightG        int                    `json:"weight_g"`
-	ImageKey       string                 `json:"image_key"`
-	Stock          int                    `json:"stock"`
-	SortOrder      int                    `json:"sort_order"`
+	SkuCode        string                 `json:"sku_code,optional"`
+	Title          string                 `json:"title,optional"`
+	Options        map[string]interface{} `json:"options,optional"`
+	PriceCents     int64                  `json:"price_cents,optional"`
+	CompareAtCents int64                  `json:"compare_at_cents,optional"`
+	WeightG        int                    `json:"weight_g,optional"`
+	ImageKey       string                 `json:"image_key,optional"`
+	Stock          int                    `json:"stock,optional"`
+	SortOrder      int                    `json:"sort_order,optional"`
 }
 
 type AdminImageReq struct {
-	ObjectKey string `json:"object_key"`
-	Alt       string `json:"alt"`
-	SortOrder int    `json:"sort_order"`
+	ObjectKey string `json:"object_key,optional"`
+	Alt       string `json:"alt,optional"`
+	SortOrder int    `json:"sort_order,optional"`
 }
 
 // TranslationInput 商品的多语言内容（locale → 翻译）
 // 缺失字段留空即回落到默认语言内容
 type TranslationInput struct {
-	Title          string `json:"title"`
-	Subtitle       string `json:"subtitle"`
-	Description    string `json:"description"`
-	SeoTitle       string `json:"seo_title"`
-	SeoDescription string `json:"seo_description"`
+	Title          string `json:"title,optional"`
+	Subtitle       string `json:"subtitle,optional"`
+	Description    string `json:"description,optional"`
+	SeoTitle       string `json:"seo_title,optional"`
+	SeoDescription string `json:"seo_description,optional"`
 }
 
 type AdminProductItem struct {
@@ -147,7 +147,7 @@ type AdminProductItem struct {
 type PresignReq struct {
 	Filename    string `json:"filename"`
 	ContentType string `json:"content_type"`
-	Size        int64  `json:"size"`
+	Size        int64  `json:"size,optional"`
 }
 
 type PresignResp struct {
@@ -158,38 +158,40 @@ type PresignResp struct {
 
 // ---------- 后台：类目管理 ----------
 type AdminCategoryReq struct {
-	ParentId    string `json:"parent_id"`
+	ParentId    string `json:"parent_id,optional"`
 	Name        string `json:"name"`
 	Slug        string `json:"slug"`
-	Description string `json:"description"`
-	ImageKey    string `json:"image_key"`
-	SortOrder   int    `json:"sort_order"`
-	Status      string `json:"status"`
+	Description string `json:"description,optional"`
+	ImageKey    string `json:"image_key,optional"`
+	SortOrder   int    `json:"sort_order,optional"`
+	Status      string `json:"status,optional"`
 	// locale -> 翻译内容（中文覆盖 name/description）
-	Translations map[string]CategoryTranslationInput `json:"translations"`
+	Translations map[string]CategoryTranslationInput `json:"translations,optional"`
 }
 
 // CategoryTranslationInput 类目翻译内容
 type CategoryTranslationInput struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string `json:"name,optional"`
+	Description string `json:"description,optional"`
 }
 
 // ---------- 下单 ----------
 type CheckoutItemReq struct {
 	SkuCode string `json:"sku_code"`
-	Qty     int    `json:"qty"`
+	Qty     int    `json:"qty,optional"`
 }
 
 type CreateOrderReq struct {
 	Email           string                 `json:"email"`
-	Currency        string                 `json:"currency"`
+	Currency        string                 `json:"currency,optional"`
 	Items           []CheckoutItemReq      `json:"items"`
 	ShippingAddress map[string]interface{} `json:"shipping_address"`
-	BillingAddress  map[string]interface{} `json:"billing_address"`
-	CustomerNote    string                 `json:"customer_note"`
-	DiscountCents   int64                  `json:"discount_cents"`
-	CouponCode      string                 `json:"coupon_code"`
+	BillingAddress  map[string]interface{} `json:"billing_address,optional"`
+	CustomerNote    string                 `json:"customer_note,optional"`
+	// 注意：discount_cents 仅作兼容保留，实际折扣一律由服务端依据 coupon_code 计算，
+	// 客户端传入值不会被信任
+	DiscountCents int64  `json:"discount_cents,optional"`
+	CouponCode    string `json:"coupon_code,optional"`
 }
 
 type OrderItemVO struct {
@@ -261,11 +263,11 @@ type AdminOrderDetail struct {
 type ShipOrderReq struct {
 	Carrier     string `json:"carrier"`
 	TrackingNo  string `json:"tracking_no"`
-	TrackingUrl string `json:"tracking_url"`
+	TrackingUrl string `json:"tracking_url,optional"`
 }
 
 type CancelOrderReq struct {
-	Reason string `json:"reason"`
+	Reason string `json:"reason,optional"`
 }
 
 // ---------- 后台：优惠券管理 ----------
@@ -287,11 +289,11 @@ type AdminCouponReq struct {
 	Code           string `json:"code"`
 	Type           string `json:"type"`
 	Value          int64  `json:"value"`
-	MinAmountCents int64  `json:"min_amount_cents"`
-	MaxUses        int    `json:"max_uses"`
-	StartsAt       string `json:"starts_at"`
-	EndsAt         string `json:"ends_at"`
-	Status         string `json:"status"`
+	MinAmountCents int64  `json:"min_amount_cents,optional"`
+	MaxUses        int    `json:"max_uses,optional"`
+	StartsAt       string `json:"starts_at,optional"`
+	EndsAt         string `json:"ends_at,optional"`
+	Status         string `json:"status,optional"`
 }
 
 type SetCouponStatusReq struct {
@@ -301,7 +303,7 @@ type SetCouponStatusReq struct {
 // ---------- 前台：优惠券试算 ----------
 type ValidateCouponReq struct {
 	Code     string `json:"code"`
-	Subtotal int64  `json:"subtotal_cents"`
+	Subtotal int64  `json:"subtotal_cents,optional"`
 }
 
 type ValidateCouponResp struct {
@@ -334,13 +336,13 @@ type AdminShippingRule struct {
 
 type AdminShippingRuleReq struct {
 	Name               string   `json:"name"`
-	CountryCodes       []string `json:"country_codes"`
-	MinAmountCents     int64    `json:"min_amount_cents"`
-	MaxWeightG         int      `json:"max_weight_g"`
-	PriceCents         int64    `json:"price_cents"`
-	FreeThresholdCents int64    `json:"free_threshold_cents"`
-	SortOrder          int      `json:"sort_order"`
-	Status             string   `json:"status"`
+	CountryCodes       []string `json:"country_codes,optional"`
+	MinAmountCents     int64    `json:"min_amount_cents,optional"`
+	MaxWeightG         int      `json:"max_weight_g,optional"`
+	PriceCents         int64    `json:"price_cents,optional"`
+	FreeThresholdCents int64    `json:"free_threshold_cents,optional"`
+	SortOrder          int      `json:"sort_order,optional"`
+	Status             string   `json:"status,optional"`
 }
 
 // ---------- 支付回调 ----------
