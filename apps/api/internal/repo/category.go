@@ -30,17 +30,16 @@ const categoryColumnsLocalized = `c.id, c.parent_id,
 
 func (r *CategoryRepo) ListActive(ctx context.Context, locale string) ([]model.Category, error) {
 	locale = i18n.Normalize(locale)
-	join := ""
-	if locale != i18n.DefaultLocale {
-		join = fmt.Sprintf(`LEFT JOIN catalog.category_translations ct
-			ON ct.category_id = c.id AND ct.locale = '%s'`, locale)
-	}
+	// 始终左连接翻译表：该语言无记录时 COALESCE 自然回落到主表英文内容
+	// 注意：不能按 locale 省略 JOIN，否则 SELECT 中的 ct.* 会因缺少表引用而报错
+	join := `LEFT JOIN catalog.category_translations ct
+		ON ct.category_id = c.id AND ct.locale = $1`
 	query := fmt.Sprintf(
 		`SELECT %s FROM catalog.categories c %s
 		 WHERE c.status='active' ORDER BY c.sort_order, c.name`,
 		categoryColumnsLocalized, join)
 	var list []model.Category
-	if err := r.conn.QueryRowsCtx(ctx, &list, query); err != nil {
+	if err := r.conn.QueryRowsCtx(ctx, &list, query, locale); err != nil {
 		return nil, err
 	}
 	return list, nil
