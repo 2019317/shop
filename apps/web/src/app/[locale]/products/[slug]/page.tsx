@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import ProductGallery from '../../../../components/ProductGallery'
 import ProductPurchase from '../../../../components/ProductPurchase'
 import { shopApi, type ProductDetail } from '../../../../lib/api'
+import { sanitizeHtml } from '../../../../lib/sanitize'
 import { getDictionarySync } from '../../../../i18n/dictionaries'
 import { isLocale, locales, type Locale } from '../../../../i18n/config'
 
@@ -77,7 +78,7 @@ export default async function ProductDetailPage({
         {product.description && (
           <div
             style={{ marginTop: 32, lineHeight: 1.7 }}
-            dangerouslySetInnerHTML={{ __html: product.description }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.description) }}
           />
         )}
 

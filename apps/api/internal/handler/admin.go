@@ -85,7 +85,8 @@ func AdminProductCreate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		id, err := svcCtx.AdminProduct.Create(r.Context(), req)
 		if err != nil {
-			response.ServerError(w, "create failed: "+err.Error())
+			logx.Errorf("product create error: %v", err)
+			response.ServerError(w, "create failed")
 			return
 		}
 		response.OK(w, map[string]string{"id": id})
@@ -104,7 +105,8 @@ func AdminProductUpdate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		if err := svcCtx.AdminProduct.Update(r.Context(), id, req); err != nil {
-			response.ServerError(w, "update failed: "+err.Error())
+			logx.Errorf("product update error: %v", err)
+			response.ServerError(w, "update failed")
 			return
 		}
 		response.OK(w, map[string]string{"id": id})
@@ -150,7 +152,8 @@ func AdminCategoryCreate(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 		id, err := svcCtx.AdminCategory.Create(r.Context(), req)
 		if err != nil {
-			response.ServerError(w, "create failed: "+err.Error())
+			logx.Errorf("category create error: %v", err)
+			response.ServerError(w, "create failed")
 			return
 		}
 		response.OK(w, map[string]string{"id": id})
@@ -204,7 +207,8 @@ func AdminAssetPresign(svcCtx *svc.ServiceContext) http.HandlerFunc {
 				response.BadRequest(w, "unsupported file type")
 				return
 			}
-			response.ServerError(w, err.Error())
+			logx.Errorf("asset presign error: %v", err)
+			response.ServerError(w, "presign failed")
 			return
 		}
 		response.OK(w, resp)

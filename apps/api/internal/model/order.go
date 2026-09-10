@@ -14,6 +14,8 @@ type Order struct {
 	DiscountCents   int64     `db:"discount_cents"`
 	TaxCents        int64     `db:"tax_cents"`
 	TotalCents      int64     `db:"total_cents"`
+	CouponId        *string   `db:"coupon_id"`
+	CouponCode      string    `db:"coupon_code"`
 	ShippingAddress string    `db:"shipping_address"` // jsonb 以文本读取
 	BillingAddress  string    `db:"billing_address"`
 	CustomerNote    string    `db:"customer_note"`

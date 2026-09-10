@@ -71,3 +71,28 @@ func GetAdminId(r *http.Request) string {
 	}
 	return ""
 }
+
+// GetAdminRole 从请求上下文读取管理员角色
+func GetAdminRole(r *http.Request) string {
+	if v, ok := r.Context().Value(CtxKeyAdminRole).(string); ok {
+		return v
+	}
+	return ""
+}
+
+// RequireRole 返回仅允许指定角色访问的中间件（用于高危操作，如发货/取消/删除）
+func RequireRole(roles ...string) rest.Middleware {
+	allowed := make(map[string]struct{}, len(roles))
+	for _, r := range roles {
+		allowed[r] = struct{}{}
+	}
+	return func(handler http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if _, ok := allowed[GetAdminRole(r)]; !ok {
+				response.Forbidden(w, "forbidden")
+				return
+			}
+			handler(w, r)
+		}
+	}
+}

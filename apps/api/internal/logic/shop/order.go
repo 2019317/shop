@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/yourname/stationery-shop/apps/api/internal/model"
 	"github.com/yourname/stationery-shop/apps/api/internal/pkg/event"
@@ -14,12 +16,18 @@ import (
 )
 
 var (
-	ErrEmptyCart        = errors.New("cart is empty")
-	ErrVariantNotFound  = errors.New("variant not found")
-	ErrVariantDisabled  = errors.New("variant is not available")
-	ErrOrderNotFound    = errors.New("order not found")
+	ErrEmptyCart         = errors.New("cart is empty")
+	ErrVariantNotFound   = errors.New("variant not found")
+	ErrVariantDisabled   = errors.New("variant is not available")
+	ErrOrderNotFound     = errors.New("order not found")
 	ErrInvalidOrderState = errors.New("invalid order state")
-	ErrAmountMismatch   = errors.New("payment amount mismatch")
+	ErrAmountMismatch    = errors.New("payment amount mismatch")
+	ErrInvalidCoupon     = errors.New("invalid coupon code")
+	ErrCouponExpired     = errors.New("coupon has expired")
+	ErrCouponNotStarted  = errors.New("coupon is not yet active")
+	ErrCouponExhausted   = errors.New("coupon has reached its usage limit")
+	ErrCouponMinAmount   = errors.New("order does not meet the coupon minimum amount")
+	ErrNoShippingRule    = errors.New("no shipping method available for the destination")
 )
 
 type OrderLogic struct {
@@ -27,6 +35,7 @@ type OrderLogic struct {
 	productRepo   *repo.ProductRepo
 	inventoryRepo *repo.InventoryRepo
 	shippingRepo  *repo.ShippingRepo
+	couponRepo    *repo.CouponRepo
 	gateway       payment.Gateway
 	bus           *event.Bus
 	publicURL     func(objectKey string) string
@@ -37,6 +46,7 @@ func NewOrderLogic(
 	productRepo *repo.ProductRepo,
 	inventoryRepo *repo.InventoryRepo,
 	shippingRepo *repo.ShippingRepo,
+	couponRepo *repo.CouponRepo,
 	gateway payment.Gateway,
 	bus *event.Bus,
 	publicURL func(objectKey string) string,
@@ -46,6 +56,7 @@ func NewOrderLogic(
 		productRepo:   productRepo,
 		inventoryRepo: inventoryRepo,
 		shippingRepo:  shippingRepo,
+		couponRepo:    couponRepo,
 		gateway:       gateway,
 		bus:           bus,
 		publicURL:     publicURL,
@@ -103,7 +114,21 @@ func (l *OrderLogic) CreateOrder(ctx context.Context, req types.CreateOrderReq) 
 		})
 	}
 
-	// 2. 计算运费
+	// 2. 计算优惠：服务端校验券码，绝不信任前端传入的 discount_cents
+	coupon, err := l.applyCoupon(ctx, req.CouponCode, subtotal)
+	if err != nil {
+		return nil, err
+	}
+	discountCents := int64(0)
+	var couponId *string
+	couponCode := ""
+	if coupon != nil {
+		discountCents = coupon.DiscountCents
+		couponId = &coupon.Id
+		couponCode = coupon.Code
+	}
+
+	// 3. 计算运费
 	country := ""
 	if v, ok := req.ShippingAddress["country"].(string); ok {
 		country = v
@@ -112,20 +137,26 @@ func (l *OrderLogic) CreateOrder(ctx context.Context, req types.CreateOrderReq) 
 	if err != nil {
 		return nil, err
 	}
+	if shippingName == "" {
+		// 未命中任何运费规则时不静默免运费，避免资损
+		return nil, ErrNoShippingRule
+	}
 
-	total := subtotal + shippingCents - req.DiscountCents
+	total := subtotal + shippingCents - discountCents
 	if total < 0 {
 		total = 0
 	}
 
-	// 3. 创建订单（pending）
+	// 4. 创建订单（pending）
 	order, err := l.orderRepo.Create(ctx, repo.CreateOrderInput{
 		Email:           req.Email,
 		Currency:        req.Currency,
 		SubtotalCents:   subtotal,
 		ShippingCents:   shippingCents,
-		DiscountCents:   req.DiscountCents,
+		DiscountCents:   discountCents,
 		TotalCents:      total,
+		CouponId:        couponId,
+		CouponCode:      couponCode,
 		ShippingAddress: req.ShippingAddress,
 		BillingAddress:  req.BillingAddress,
 		CustomerNote:    req.CustomerNote,
@@ -135,7 +166,7 @@ func (l *OrderLogic) CreateOrder(ctx context.Context, req types.CreateOrderReq) 
 		return nil, err
 	}
 
-	// 4. 预占库存（按 SKU 聚合数量）
+	// 5. 预占库存（按 SKU 聚合数量）
 	aggregated := map[string]int{}
 	for _, it := range items {
 		aggregated[it.VariantId] += it.Qty
@@ -149,7 +180,7 @@ func (l *OrderLogic) CreateOrder(ctx context.Context, req types.CreateOrderReq) 
 		}
 	}
 
-	// 5. 创建支付意图
+	// 6. 创建支付意图
 	intent, err := l.gateway.Create(ctx, payment.CreateInput{
 		OrderId:     order.Id,
 		OrderNo:     order.OrderNo,
@@ -169,7 +200,22 @@ func (l *OrderLogic) CreateOrder(ctx context.Context, req types.CreateOrderReq) 
 		return nil, err
 	}
 
-	// 6. 发布领域事件（后续可挂接：发送确认邮件、库存同步等）
+	// 7. 原子占用优惠券名额，防止并发超发；失败则回滚本次下单
+	if couponId != nil {
+		ok, err := l.couponRepo.IncrementUsage(ctx, *couponId)
+		if err != nil {
+			_ = l.inventoryRepo.Release(ctx, "order", order.Id)
+			_ = l.orderRepo.UpdateStatus(ctx, order.Id, "cancelled", "system", "coupon reservation failed")
+			return nil, err
+		}
+		if !ok {
+			_ = l.inventoryRepo.Release(ctx, "order", order.Id)
+			_ = l.orderRepo.UpdateStatus(ctx, order.Id, "cancelled", "system", "coupon exhausted")
+			return nil, ErrCouponExhausted
+		}
+	}
+
+	// 8. 发布领域事件（后续可挂接：发送确认邮件、库存同步等）
 	l.bus.Publish(ctx, event.Event{
 		Type: event.OrderCreated,
 		Payload: map[string]interface{}{
@@ -194,6 +240,10 @@ func (l *OrderLogic) CreateOrder(ctx context.Context, req types.CreateOrderReq) 
 
 // MarkPaid 支付成功回调处理（幂等）
 func (l *OrderLogic) MarkPaid(ctx context.Context, orderNo string, provider, eventId string, amountCents int64) error {
+	if strings.TrimSpace(orderNo) == "" || strings.TrimSpace(provider) == "" || strings.TrimSpace(eventId) == "" {
+		return ErrInvalidOrderState
+	}
+
 	order, err := l.orderRepo.FindByOrderNo(ctx, orderNo)
 	if err != nil {
 		return err
@@ -218,8 +268,8 @@ func (l *OrderLogic) MarkPaid(ctx context.Context, orderNo string, provider, eve
 		return ErrInvalidOrderState
 	}
 
-	// 金额校验，防止伪造回调
-	if amountCents > 0 && amountCents != order.TotalCents {
+	// 金额严格校验，防止伪造回调（包含 0 金额的免费订单，也必须与订单总额一致）
+	if amountCents != order.TotalCents {
 		return ErrAmountMismatch
 	}
 
@@ -269,6 +319,9 @@ func (l *OrderLogic) Cancel(ctx context.Context, orderNo, reason string) error {
 	if err := l.orderRepo.UpdateStatus(ctx, order.Id, "cancelled", "system", reason); err != nil {
 		return err
 	}
+	if order.CouponId != nil {
+		_ = l.couponRepo.DecrementUsage(ctx, *order.CouponId)
+	}
 
 	l.bus.Publish(ctx, event.Event{
 		Type:    event.OrderCanceled,
@@ -277,13 +330,19 @@ func (l *OrderLogic) Cancel(ctx context.Context, orderNo, reason string) error {
 	return nil
 }
 
-// DetailByNo 供用户查询订单
-func (l *OrderLogic) DetailByNo(ctx context.Context, orderNo string) (*types.OrderVO, error) {
+// DetailByNo 供用户查询订单：必须同时提供订单号与下单邮箱，防止订单号被枚举泄露隐私
+func (l *OrderLogic) DetailByNo(ctx context.Context, orderNo, email string) (*types.OrderVO, error) {
+	if strings.TrimSpace(orderNo) == "" || strings.TrimSpace(email) == "" {
+		return nil, nil
+	}
 	order, err := l.orderRepo.FindByOrderNo(ctx, orderNo)
 	if err != nil {
 		return nil, err
 	}
 	if order == nil {
+		return nil, nil
+	}
+	if !strings.EqualFold(strings.TrimSpace(email), order.Email) {
 		return nil, nil
 	}
 	return l.toVO(ctx, order, nil)
@@ -339,4 +398,60 @@ func decodeMap(raw string) map[string]interface{} {
 	out := map[string]interface{}{}
 	_ = json.Unmarshal([]byte(raw), &out)
 	return out
+}
+
+// couponDiscount 优惠券计算结果
+type couponDiscount struct {
+	Id            string
+	Code          string
+	DiscountCents int64
+}
+
+// applyCoupon 服务端校验并计算优惠金额。
+// code 为空返回 (nil, nil)；无效券返回对应错误。折扣金额绝不信任客户端。
+func (l *OrderLogic) applyCoupon(ctx context.Context, code string, subtotal int64) (*couponDiscount, error) {
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return nil, nil
+	}
+
+	coupon, err := l.couponRepo.FindActiveByCode(ctx, code)
+	if err != nil {
+		return nil, err
+	}
+	if coupon == nil || coupon.Status != "active" {
+		return nil, ErrInvalidCoupon
+	}
+
+	now := time.Now().UTC()
+	if coupon.StartsAt != nil && now.Before(*coupon.StartsAt) {
+		return nil, ErrCouponNotStarted
+	}
+	if coupon.EndsAt != nil && now.After(*coupon.EndsAt) {
+		return nil, ErrCouponExpired
+	}
+	if coupon.MinAmountCents > 0 && subtotal < coupon.MinAmountCents {
+		return nil, ErrCouponMinAmount
+	}
+	if coupon.MaxUses > 0 && coupon.UsedCount >= coupon.MaxUses {
+		return nil, ErrCouponExhausted
+	}
+
+	var discount int64
+	switch coupon.Type {
+	case "percent":
+		discount = subtotal * coupon.Value / 100
+	case "fixed":
+		discount = coupon.Value
+	default:
+		return nil, ErrInvalidCoupon
+	}
+	if discount < 0 {
+		discount = 0
+	}
+	if discount > subtotal {
+		discount = subtotal
+	}
+
+	return &couponDiscount{Id: coupon.Id, Code: coupon.Code, DiscountCents: discount}, nil
 }

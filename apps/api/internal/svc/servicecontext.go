@@ -63,6 +63,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	orderRepo := repo.NewOrderRepo(db)
 	inventoryRepo := repo.NewInventoryRepo(db)
 	shippingRepo := repo.NewShippingRepo(db)
+	couponRepo := repo.NewCouponRepo(db)
 
 	bus := event.NewBus()
 	registerEventHandlers(bus)
@@ -78,10 +79,10 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		AdminProduct:  admin.NewProductLogic(productRepo),
 		AdminCategory: admin.NewCategoryLogic(categoryRepo, store),
 		AdminAsset:    admin.NewAssetLogic(store),
-		AdminOrder:    admin.NewOrderLogic(orderRepo, inventoryRepo, bus),
+		AdminOrder:    admin.NewOrderLogic(orderRepo, inventoryRepo, couponRepo, bus),
 
 		ShopProduct: shopLogic.NewProductLogic(productRepo, categoryRepo, store.PublicURL),
 		ShopOrder: shopLogic.NewOrderLogic(
-			orderRepo, productRepo, inventoryRepo, shippingRepo, gateway, bus, store.PublicURL),
+			orderRepo, productRepo, inventoryRepo, shippingRepo, couponRepo, gateway, bus, store.PublicURL),
 	}
 }

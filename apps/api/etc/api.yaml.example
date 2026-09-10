@@ -48,6 +48,8 @@ Payment:
   StripeSecretKey: ${STRIPE_SECRET_KEY}
   StripeWebhookKey: ${STRIPE_WEBHOOK_SECRET}
   Currency: USD
+  # 支付回调 HMAC 签名密钥（生产环境必填；未配置时生产模式拒绝回调）
+  WebhookSecret: ${PAYMENT_WEBHOOK_SECRET}
 
 # ---------- 邮件 ----------
 Mail:

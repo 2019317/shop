@@ -45,6 +45,8 @@ type CreateOrderInput struct {
 	DiscountCents   int64
 	TaxCents        int64
 	TotalCents      int64
+	CouponId        *string
+	CouponCode      string
 	ShippingAddress map[string]interface{}
 	BillingAddress  map[string]interface{}
 	CustomerNote    string
@@ -67,10 +69,10 @@ func (r *OrderRepo) Create(ctx context.Context, in CreateOrderInput) (*model.Ord
 	err := r.conn.TransactCtx(ctx, func(ctx context.Context, session sqlx.Session) error {
 		insertOrder := `INSERT INTO orders.orders
 		 (order_no, user_id, email, status, currency, subtotal_cents, shipping_cents,
-		  discount_cents, tax_cents, total_cents, shipping_address, billing_address, customer_note)
-		 VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10,$11,$12)
+		  discount_cents, tax_cents, total_cents, coupon_id, coupon_code, shipping_address, billing_address, customer_note)
+		 VALUES ($1,$2,$3,'pending',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 		 RETURNING id, order_no, user_id, email, status, currency, subtotal_cents, shipping_cents,
-		  discount_cents, tax_cents, total_cents, shipping_address::text, billing_address::text,
+		  discount_cents, tax_cents, total_cents, coupon_id, coupon_code, shipping_address::text, billing_address::text,
 		  customer_note, paid_at, fulfilled_at, created_at, updated_at`
 
 		stmt, err := session.Prepare(insertOrder)
@@ -81,7 +83,7 @@ func (r *OrderRepo) Create(ctx context.Context, in CreateOrderInput) (*model.Ord
 
 		err = stmt.QueryRowCtx(ctx, order, orderNo, in.UserId, in.Email, in.Currency,
 			in.SubtotalCents, in.ShippingCents, in.DiscountCents, in.TaxCents, in.TotalCents,
-			string(shippingJSON), string(billingJSON), in.CustomerNote)
+			in.CouponId, in.CouponCode, string(shippingJSON), string(billingJSON), in.CustomerNote)
 		if err != nil {
 			return err
 		}
@@ -129,9 +131,9 @@ func (r *OrderRepo) Create(ctx context.Context, in CreateOrderInput) (*model.Ord
 
 func (r *OrderRepo) FindByOrderNo(ctx context.Context, orderNo string) (*model.OrderDetail, error) {
 	query := `SELECT id, order_no, user_id, email, status, currency, subtotal_cents, shipping_cents,
-		discount_cents, tax_cents, total_cents, shipping_address::text as shipping_address,
-		billing_address::text as billing_address, customer_note, paid_at, fulfilled_at,
-		created_at, updated_at
+		discount_cents, tax_cents, total_cents, coupon_id, coupon_code,
+		shipping_address::text as shipping_address, billing_address::text as billing_address,
+		customer_note, paid_at, fulfilled_at, created_at, updated_at
 		FROM orders.orders WHERE order_no=$1 LIMIT 1`
 
 	var detail model.OrderDetail
@@ -149,9 +151,9 @@ func (r *OrderRepo) FindByOrderNo(ctx context.Context, orderNo string) (*model.O
 
 func (r *OrderRepo) FindById(ctx context.Context, id string) (*model.OrderDetail, error) {
 	query := `SELECT id, order_no, user_id, email, status, currency, subtotal_cents, shipping_cents,
-		discount_cents, tax_cents, total_cents, shipping_address::text as shipping_address,
-		billing_address::text as billing_address, customer_note, paid_at, fulfilled_at,
-		created_at, updated_at
+		discount_cents, tax_cents, total_cents, coupon_id, coupon_code,
+		shipping_address::text as shipping_address, billing_address::text as billing_address,
+		customer_note, paid_at, fulfilled_at, created_at, updated_at
 		FROM orders.orders WHERE id=$1 LIMIT 1`
 
 	var detail model.OrderDetail
@@ -264,9 +266,9 @@ func (r *OrderRepo) AdminList(ctx context.Context, f AdminOrderFilter) ([]model.
 	}
 
 	query := fmt.Sprintf(`SELECT id, order_no, user_id, email, status, currency, subtotal_cents,
-		shipping_cents, discount_cents, tax_cents, total_cents, shipping_address::text as shipping_address,
-		billing_address::text as billing_address, customer_note, paid_at, fulfilled_at,
-		created_at, updated_at
+		shipping_cents, discount_cents, tax_cents, total_cents, coupon_id, coupon_code,
+		shipping_address::text as shipping_address, billing_address::text as billing_address,
+		customer_note, paid_at, fulfilled_at, created_at, updated_at
 		FROM orders.orders WHERE %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`,
 		whereSQL, idx, idx+1)
 

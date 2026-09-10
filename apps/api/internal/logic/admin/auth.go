@@ -7,7 +7,6 @@ import (
 
 	"github.com/zeromicro/go-zero/core/logx"
 
-	"github.com/yourname/stationery-shop/apps/api/internal/model"
 	"github.com/yourname/stationery-shop/apps/api/internal/pkg/jwt"
 	"github.com/yourname/stationery-shop/apps/api/internal/pkg/password"
 	"github.com/yourname/stationery-shop/apps/api/internal/repo"
@@ -15,6 +14,12 @@ import (
 )
 
 var ErrInvalidCredentials = errors.New("invalid email or password")
+
+// dummyPasswordHash 用于账号不存在时执行等成本哈希比对，避免通过响应时间枚举账号
+var dummyPasswordHash = func() string {
+	h, _ := password.Hash("stationery-shop-timing-dummy")
+	return h
+}()
 
 type AuthLogic struct {
 	adminRepo *repo.AdminUserRepo
@@ -26,33 +31,22 @@ func NewAuthLogic(adminRepo *repo.AdminUserRepo, secret string, ttl time.Duratio
 	return &AuthLogic{adminRepo: adminRepo, secret: secret, ttl: ttl}
 }
 
-// safeStatus / safeHashLen 供调试日志安全取值（u 可能为 nil）
-func safeStatus(u *model.AdminUser) string {
-	if u == nil {
-		return "<nil>"
-	}
-	return u.Status
-}
-
-func safeHashLen(u *model.AdminUser) int {
-	if u == nil {
-		return -1
-	}
-	return len(u.PasswordHash)
-}
-
 func (l *AuthLogic) Login(ctx context.Context, req types.AdminLoginReq) (*types.AdminLoginResp, error) {
 	u, err := l.adminRepo.FindByEmail(ctx, req.Email)
 	if err != nil {
-		logx.Errorf("[login-debug] FindByEmail error: %v", err)
+		logx.Errorf("admin login lookup error: %v", err)
 		return nil, err
 	}
-	// 临时调试：定位登录失败原因（排查完毕后移除）
-	logx.Infof("[login-debug] email=%q pwdLen=%d u==nil:%v status=%q hashLen=%d verify=%v",
-		req.Email, len(req.Password), u == nil, safeStatus(u), safeHashLen(u),
-		u != nil && password.Verify(req.Password, u.PasswordHash))
 
-	if u == nil || u.Status != "active" || !password.Verify(req.Password, u.PasswordHash) {
+	// 无论账号是否存在都执行一次 PBKDF2 比对，抹平时间侧信道
+	valid := false
+	if u != nil {
+		valid = password.Verify(req.Password, u.PasswordHash)
+	} else {
+		password.Verify(req.Password, dummyPasswordHash)
+	}
+
+	if u == nil || u.Status != "active" || !valid {
 		return nil, ErrInvalidCredentials
 	}
 

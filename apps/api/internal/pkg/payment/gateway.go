@@ -77,7 +77,8 @@ func NewMock() *Mock { return &Mock{} }
 func (m *Mock) Name() string { return "mock" }
 
 func (m *Mock) Create(ctx context.Context, in CreateInput) (*IntentResult, error) {
-	if in.AmountCents <= 0 {
+	// 允许 0 元订单（如 100% 优惠券），仅拒绝非法负值
+	if in.AmountCents < 0 {
 		return nil, ErrPaymentFailed
 	}
 	return &IntentResult{

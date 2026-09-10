@@ -69,7 +69,12 @@ export interface CreateOrderInput {
 
 export const orderApi = {
   create: (input: CreateOrderInput) => post<OrderVO>('/orders', input),
-  detail: (orderNo: string) => get<OrderVO>(`/orders/${orderNo}`),
+  // 查询订单需同时提供下单邮箱，服务端据此校验归属，防止订单号被枚举泄露隐私
+  detail: (orderNo: string, email?: string) =>
+    get<OrderVO>(
+      `/orders/${orderNo}${email ? `?email=${encodeURIComponent(email)}` : ''}`,
+    ),
+  // 仅供本地/测试环境的 mock 渠道手动标记支付；生产环境由支付服务商 Webhook 回调
   notifyPaid: (orderNo: string, amountCents: number) =>
     post<{ handled: boolean }>('/payments/notify', {
       provider: 'mock',

@@ -1,17 +1,22 @@
 package handler
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 
+	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest/httpx"
 
 	"github.com/yourname/stationery-shop/apps/api/internal/logic/shop"
 	"github.com/yourname/stationery-shop/apps/api/internal/pkg/response"
+	"github.com/yourname/stationery-shop/apps/api/internal/pkg/validate"
+	"github.com/yourname/stationery-shop/apps/api/internal/pkg/webhook"
 	"github.com/yourname/stationery-shop/apps/api/internal/svc"
 	"github.com/yourname/stationery-shop/apps/api/internal/types"
 )
 
-// CreateOrder 提交订单
+// CreateOrder 提交订单（价格一律服务端计算）
 func CreateOrder(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.CreateOrderReq
@@ -19,8 +24,8 @@ func CreateOrder(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			response.BadRequest(w, "invalid params")
 			return
 		}
-		if req.Email == "" {
-			response.BadRequest(w, "email is required")
+		if !validate.Email(req.Email) {
+			response.BadRequest(w, "invalid email")
 			return
 		}
 		if len(req.Items) == 0 {
@@ -30,22 +35,43 @@ func CreateOrder(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		if req.Currency == "" {
 			req.Currency = "USD"
 		}
+		if !validate.Currency(req.Currency) {
+			response.BadRequest(w, "invalid currency")
+			return
+		}
+		if !validate.MaxLen(req.CustomerNote, 2000) {
+			response.BadRequest(w, "customer note is too long")
+			return
+		}
+		if country, ok := req.ShippingAddress["country"].(string); !ok || !validate.Country(country) {
+			response.BadRequest(w, "invalid shipping country")
+			return
+		}
 
 		order, err := svcCtx.ShopOrder.CreateOrder(r.Context(), req)
 		if err != nil {
+			logx.Errorf("create order error: %v", err)
 			switch err {
-			case shop.ErrVariantNotFound:
-				response.BadRequest(w, "some items are no longer available")
-			case shop.ErrVariantDisabled:
+			case shop.ErrVariantNotFound, shop.ErrVariantDisabled, shop.ErrEmptyCart:
 				response.BadRequest(w, "some items are unavailable")
-			case shop.ErrEmptyCart:
-				response.BadRequest(w, "cart is empty")
+			case shop.ErrInvalidCoupon:
+				response.BadRequest(w, "invalid coupon code")
+			case shop.ErrCouponExpired:
+				response.BadRequest(w, "coupon has expired")
+			case shop.ErrCouponNotStarted:
+				response.BadRequest(w, "coupon is not yet active")
+			case shop.ErrCouponExhausted:
+				response.BadRequest(w, "coupon has reached its usage limit")
+			case shop.ErrCouponMinAmount:
+				response.BadRequest(w, "order does not meet the coupon minimum amount")
+			case shop.ErrNoShippingRule:
+				response.BadRequest(w, "no shipping method available for the destination")
 			default:
 				if err.Error() == "insufficient stock" {
 					response.BadRequest(w, "insufficient stock")
 					return
 				}
-				response.ServerError(w, "create order failed: "+err.Error())
+				response.ServerError(w, "create order failed")
 			}
 			return
 		}
@@ -53,15 +79,17 @@ func CreateOrder(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	}
 }
 
-// OrderDetail 按订单号查询（下单成功后用户凭此查询）
+// OrderDetail 按订单号 + 下单邮箱查询（保护用户隐私，防止订单号被枚举）
 func OrderDetail(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		orderNo := r.PathValue("order_no")
 		if orderNo == "" {
 			orderNo = pathParam(r, "order_no")
 		}
-		order, err := svcCtx.ShopOrder.DetailByNo(r.Context(), orderNo)
+		email := r.URL.Query().Get("email")
+		order, err := svcCtx.ShopOrder.DetailByNo(r.Context(), orderNo, email)
 		if err != nil {
+			logx.Errorf("order detail error: %v", err)
 			response.ServerError(w, "query failed")
 			return
 		}
@@ -73,12 +101,24 @@ func OrderDetail(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	}
 }
 
-// PayNotify 支付回调（当前为 mock 渠道调用；接入 Stripe 后由其 Webhook 调用）
-// 幂等由 event_id 唯一约束保证，重复回调不会重复发货
+// PayNotify 支付回调（mock 联调 / Stripe Webhook）。
+// 幂等由 event_id 唯一约束保证；生产环境强制校验 HMAC 签名。
 func PayNotify(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		rawBody, err := io.ReadAll(r.Body)
+		if err != nil {
+			response.BadRequest(w, "invalid params")
+			return
+		}
+		defer r.Body.Close()
+
+		if !authorizeWebhook(svcCtx, rawBody, r) {
+			response.Unauthorized(w, "invalid signature")
+			return
+		}
+
 		var req types.PayNotifyReq
-		if err := httpx.Parse(r, &req); err != nil {
+		if err := json.Unmarshal(rawBody, &req); err != nil {
 			response.BadRequest(w, "invalid params")
 			return
 		}
@@ -92,9 +132,29 @@ func PayNotify(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		if err := svcCtx.ShopOrder.MarkPaid(r.Context(), req.OrderNo,
 			req.Provider, req.EventId, req.AmountCents); err != nil {
-			response.ServerError(w, err.Error())
+			logx.Errorf("mark paid error: %v", err)
+			if err == shop.ErrAmountMismatch {
+				response.BadRequest(w, "amount mismatch")
+				return
+			}
+			if err == shop.ErrInvalidOrderState || err == shop.ErrOrderNotFound {
+				response.BadRequest(w, "invalid order")
+				return
+			}
+			response.ServerError(w, "payment notify failed")
 			return
 		}
 		response.OK(w, map[string]bool{"handled": true})
 	}
+}
+
+// authorizeWebhook 校验回调签名：配置了 WebhookSecret 则强制校验；
+// 未配置时生产环境直接拒绝（fail closed），开发/测试允许 mock 自通知。
+func authorizeWebhook(svcCtx *svc.ServiceContext, rawBody []byte, r *http.Request) bool {
+	secret := svcCtx.Config.Payment.WebhookSecret
+	sig := r.Header.Get("X-Webhook-Signature")
+	if secret != "" {
+		return webhook.VerifySignature(secret, string(rawBody), sig)
+	}
+	return svcCtx.Config.Mode != "pro"
 }

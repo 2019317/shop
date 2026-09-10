@@ -44,10 +44,12 @@ type Config struct {
 
 	// ---------- 支付（适配器：Stripe / PayPal）----------
 	Payment struct {
-		Driver          string `json:",default=stripe"` // stripe | paypal
-		StripeSecretKey string
+		Driver           string `json:",default=stripe"` // stripe | paypal
+		StripeSecretKey  string
 		StripeWebhookKey string
-		Currency        string `json:",default=USD"`
+		Currency         string `json:",default=USD"`
+		// WebhookSecret 支付回调 HMAC 签名密钥（生产环境必填，用于校验回调真实性）
+		WebhookSecret string
 	}
 
 	// ---------- 邮件 ----------

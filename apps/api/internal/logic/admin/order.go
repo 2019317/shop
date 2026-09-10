@@ -18,11 +18,12 @@ var (
 type OrderLogic struct {
 	orderRepo     *repo.OrderRepo
 	inventoryRepo *repo.InventoryRepo
+	couponRepo    *repo.CouponRepo
 	bus           *event.Bus
 }
 
-func NewOrderLogic(orderRepo *repo.OrderRepo, inventoryRepo *repo.InventoryRepo, bus *event.Bus) *OrderLogic {
-	return &OrderLogic{orderRepo: orderRepo, inventoryRepo: inventoryRepo, bus: bus}
+func NewOrderLogic(orderRepo *repo.OrderRepo, inventoryRepo *repo.InventoryRepo, couponRepo *repo.CouponRepo, bus *event.Bus) *OrderLogic {
+	return &OrderLogic{orderRepo: orderRepo, inventoryRepo: inventoryRepo, couponRepo: couponRepo, bus: bus}
 }
 
 func (l *OrderLogic) List(ctx context.Context, status, keyword string, page, pageSize int) (*types.PageData, error) {
@@ -160,6 +161,9 @@ func (l *OrderLogic) Cancel(ctx context.Context, id, reason string) error {
 	}
 	if err := l.orderRepo.UpdateStatus(ctx, id, "cancelled", "admin", reason); err != nil {
 		return err
+	}
+	if detail.CouponId != nil {
+		_ = l.couponRepo.DecrementUsage(ctx, *detail.CouponId)
 	}
 
 	l.bus.Publish(ctx, event.Event{

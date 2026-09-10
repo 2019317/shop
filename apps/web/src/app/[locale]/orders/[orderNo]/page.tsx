@@ -15,15 +15,18 @@ const statusKey = {
 
 export default async function OrderPage({
   params,
+  searchParams,
 }: {
   params: { orderNo: string; locale: string }
+  searchParams: { email?: string }
 }) {
   const locale = (isLocale(params.locale) ? params.locale : 'en') as Locale
   const dict = getDictionarySync(locale)
 
   let order
   try {
-    order = await orderApi.detail(params.orderNo)
+    // 需同时提供下单邮箱，服务端校验归属后再返回订单详情
+    order = await orderApi.detail(params.orderNo, searchParams.email)
   } catch {
     order = null
   }

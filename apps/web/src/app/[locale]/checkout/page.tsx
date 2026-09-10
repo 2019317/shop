@@ -62,7 +62,10 @@ export default function CheckoutPage() {
       })
 
       clear()
-      router.push(`/${locale}/orders/${order.order_no}`)
+      localStorage.setItem('shop_order_email', form.email)
+      router.push(
+        `/${locale}/orders/${order.order_no}?email=${encodeURIComponent(form.email)}`,
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Checkout failed')
     } finally {
