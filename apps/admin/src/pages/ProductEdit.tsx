@@ -41,7 +41,8 @@ export default function ProductEdit() {
   const [uploading, setUploading] = useState(false)
   const [zhTrans, setZhTrans] = useState<TranslationInput>({})
   const navigate = useNavigate()
-  const { message, dict } = App.useApp() as any
+  const { message } = App.useApp()
+  const { dict } = useI18n()
 
   useEffect(() => {
     api.get<Category[]>('/admin/categories').then(setCategories).catch(() => {})
