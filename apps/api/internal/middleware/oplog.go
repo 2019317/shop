@@ -1,9 +1,7 @@
 package middleware
 
 import (
-	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/zeromicro/go-zero/rest"
@@ -97,23 +95,6 @@ func NewOpLogHandlerFunc(store *oplog.Store) rest.Middleware {
 	return func(handler http.HandlerFunc) http.HandlerFunc {
 		return next(handler).ServeHTTP
 	}
-}
-
-func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		if i := strings.IndexByte(xff, ','); i > 0 {
-			return strings.TrimSpace(xff[:i])
-		}
-		return strings.TrimSpace(xff)
-	}
-	if xrip := r.Header.Get("X-Real-Ip"); xrip != "" {
-		return xrip
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
 }
 
 func statusText(code int) string {
