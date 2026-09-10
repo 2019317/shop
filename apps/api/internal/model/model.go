@@ -1,6 +1,7 @@
 package model
 
 import (
+	"database/sql"
 	"time"
 )
 
@@ -12,7 +13,7 @@ type AdminUser struct {
 	Name         string     `db:"name"`
 	Role         string     `db:"role"`
 	Status       string     `db:"status"`
-	LastLoginAt  *time.Time `db:"last_login_at"`
+	LastLoginAt  sql.NullTime `db:"last_login_at"`
 	CreatedAt    time.Time  `db:"created_at"`
 	UpdatedAt    time.Time  `db:"updated_at"`
 }
