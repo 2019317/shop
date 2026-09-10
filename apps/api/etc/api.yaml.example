@@ -9,6 +9,10 @@ Mode: pro
 Timeout: 30000
 MaxBytes: 20971520
 
+# ---------- CORS：允许调用 API 的前端来源，逗号分隔 ----------
+# 留空表示允许全部来源（本地开发联调时最省事）
+CorsOrigins: ${CORS_ORIGINS}
+
 # ---------- 数据库：Neon / 云 RDS ----------
 Database:
   Dsn: ${DATABASE_URL}
