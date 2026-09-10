@@ -1,4 +1,7 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8888/api/v1'
+import { resolveApiBase } from './env'
+
+// 服务端走内网、浏览器走公网（见 ./env）
+const API_BASE = resolveApiBase()
 
 interface ApiResult<T> {
   code: number

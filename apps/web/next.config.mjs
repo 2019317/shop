@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // standalone 输出：仅打包运行所需文件，便于用精简镜像部署（Docker）
+  output: 'standalone',
   // 图片全部托管在 Cloudflare R2，通过自定义域名访问
   images: {
     remotePatterns: [

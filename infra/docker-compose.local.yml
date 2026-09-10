@@ -116,6 +116,38 @@ services:
         limits:
           memory: 128M
 
+  # 前台商城（Next.js App Router）：标准模式运行，SSR + ISR
+  # 浏览器侧接口地址由 NEXT_PUBLIC_API_BASE_URL 决定（构建期内联），
+  # 需指向可直接访问的 API 地址；默认走宿主机 IP:8888。
+  # 访问：http://<服务器公网IP>:3000
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${WEB_API_BASE_URL:-http://54.176.222.252:8888/api/v1}
+        NEXT_PUBLIC_IMG_BASE_URL: ${WEB_IMG_BASE_URL:-}
+    container_name: shop-web
+    restart: unless-stopped
+    environment:
+      # 服务端渲染在同一网络内可直接用容器名访问 api，减少外网回环
+      API_BASE_URL: http://api:8888/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3000/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
 volumes:
   pgdata:
   redisdata:

@@ -1,0 +1,21 @@
+# 依赖与构建产物（容器内会重新安装/构建）
+**/node_modules
+**/.next
+**/dist
+**/build
+**/.turbo
+
+# Git 与本地环境
+.git
+.gitignore
+**/.env
+**/.env.*
+
+# 文档与本地数据
+docs
+*.md
+**/*.log
+.DS_Store
+
+# Go 本地构建产物
+apps/api/api

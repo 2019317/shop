@@ -1,6 +1,8 @@
 import type { Locale } from '../i18n/config'
+import { resolveApiBase } from './env'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8888/api/v1'
+// 服务端渲染走容器内网地址，浏览器走公网地址（见 ./env）
+const API_BASE = resolveApiBase()
 const IMG_BASE = process.env.NEXT_PUBLIC_IMG_BASE_URL || ''
 
 export function imgUrl(keyOrUrl: string): string {
@@ -15,21 +17,33 @@ interface ApiResult<T> {
   data: T
 }
 
-async function request<T>(path: string, init?: RequestInit & { revalidate?: number }): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
-    // ISR：商品数据变动不频繁，缓存 60 秒
-    next: { revalidate: init?.revalidate ?? 60 },
-  })
-  if (!res.ok) {
-    throw new Error(`API error: ${res.status}`)
+async function request<T>(
+  path: string,
+  init?: RequestInit & { revalidate?: number; fallback?: T },
+): Promise<T> {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+      // ISR：商品数据变动不频繁，缓存 60 秒
+      next: { revalidate: init?.revalidate ?? 60 },
+    })
+    if (!res.ok) {
+      throw new Error(`API error: ${res.status}`)
+    }
+    const json: ApiResult<T> = await res.json()
+    if (json.code !== 0) {
+      throw new Error(json.msg)
+    }
+    return json.data
+  } catch (err) {
+    // 构建期（next build）接口可能尚不可用；若提供了兜底值则降级为空数据，
+    // 由运行时 ISR 重新拉取，避免整个构建因接口暂时不可达而失败。
+    if (init && 'fallback' in init && init.fallback !== undefined) {
+      return init.fallback
+    }
+    throw err
   }
-  const json: ApiResult<T> = await res.json()
-  if (json.code !== 0) {
-    throw new Error(json.msg)
-  }
-  return json.data
 }
 
 export interface ProductListItem {
@@ -115,7 +129,14 @@ export const shopApi = {
     if (params.locale) sp.set('locale', params.locale)
     sp.set('page', String(params.page || 1))
     sp.set('page_size', String(params.pageSize || 24))
-    return request<Paged<ProductListItem>>(`/products?${sp.toString()}`)
+    return request<Paged<ProductListItem>>(`/products?${sp.toString()}`, {
+      fallback: {
+        list: [],
+        total: 0,
+        page: params.page || 1,
+        page_size: params.pageSize || 24,
+      },
+    })
   },
 
   product: (slug: string, locale?: Locale) =>
@@ -124,5 +145,7 @@ export const shopApi = {
     ),
 
   categories: (locale?: Locale) =>
-    request<Category[]>(`/categories${locale ? `?locale=${locale}` : ''}`),
+    request<Category[]>(`/categories${locale ? `?locale=${locale}` : ''}`, {
+      fallback: [],
+    }),
 }
