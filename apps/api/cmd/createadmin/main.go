@@ -1,11 +1,12 @@
-// Command createadmin 用于初始化/重置后台管理员账号。
+// Command createadmin 用于初始化/重置后台管理员账号，并自校验密码哈希。
 //
 // 用法（在仓库根目录执行，需能连上数据库）：
 //
-//	go run ./apps/api/cmd/createadmin -email admin@example.com -password 'your-password' -name 'Admin'
+//	go run ./apps/api/cmd/createadmin -email admin@example.com -password 'your-password'
 //
 // 连接串从环境变量 DATABASE_URL 读取；也可用 -dsn 显式指定。
 // 行为：邮箱已存在则重置密码（并重新激活账号），否则新建（role=admin）。
+// 最后会把库中的哈希读回并用同一套 Verify 校验，便于排查登录失败。
 package main
 
 import (
@@ -45,7 +46,6 @@ func main() {
 		log.Fatalf("生成密码哈希失败: %v", err)
 	}
 
-	// 邮箱唯一索引基于 lower(email)，已存在则重置密码并激活
 	var id string
 	err = conn.QueryRowCtx(ctx, &id,
 		`SELECT id FROM admin.admin_users WHERE lower(email) = lower($1) LIMIT 1`, *email)
@@ -60,7 +60,6 @@ func main() {
 		fmt.Printf("已重置管理员密码：%s (id=%s)\n", *email, id)
 
 	case err == sql.ErrNoRows:
-		// QueryRowCtx 会把 RETURNING id 直接扫描进 &id，无需再调用 Scan
 		if err := conn.QueryRowCtx(ctx, &id,
 			`INSERT INTO admin.admin_users (email, password_hash, name, role, status)
 			 VALUES ($1,$2,$3,'admin','active') RETURNING id`,
@@ -72,4 +71,19 @@ func main() {
 	default:
 		log.Fatalf("查询管理员失败: %v", err)
 	}
+
+	// 自校验：读回库中哈希，用同一套 Verify 验证
+	var saved string
+	if err := conn.QueryRowCtx(ctx, &saved,
+		`SELECT password_hash FROM admin.admin_users WHERE lower(email) = lower($1) LIMIT 1`,
+		*email); err != nil {
+		log.Fatalf("读取已保存哈希失败: %v", err)
+	}
+
+	fmt.Println("---- 自校验 ----")
+	fmt.Printf("[1] 新生成哈希长度 = %d\n", len(hash))
+	fmt.Printf("[2] 库中哈希长度   = %d\n", len(saved))
+	fmt.Printf("[3] 库中哈希 == 新生成哈希 ? %v\n", saved == hash)
+	fmt.Printf("[4] Verify(明文, 库中哈希)   = %v\n", password.Verify(*pwd, saved))
+	fmt.Printf("[5] Verify(明文, 新生成哈希) = %v\n", password.Verify(*pwd, hash))
 }
