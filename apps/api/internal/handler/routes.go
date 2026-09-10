@@ -13,7 +13,7 @@ import (
 // RegisterHandlers 注册路由
 // 分层约定：handler 只做参数绑定与响应封装，业务逻辑一律下沉到 logic
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
-	cors := middleware.CORS(strings.Split(serverCtx.Config.CorsOrigins, ","))
+	cors := middleware.CORSHandlerFunc(strings.Split(serverCtx.Config.CorsOrigins, ","))
 
 	// ---------------- 前台公开接口 ----------------
 	server.AddRoutes(rest.WithMiddlewares(
@@ -31,7 +31,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	))
 
 	// ---------------- 后台接口 ----------------
-	adminAuth := middleware.AdminAuth(serverCtx.Config.AdminAuth.AccessSecret)
+	adminAuth := middleware.AdminAuthHandlerFunc(serverCtx.Config.AdminAuth.AccessSecret)
 
 	// 登录：无需鉴权
 	server.AddRoutes(rest.WithMiddlewares(

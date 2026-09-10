@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/zeromicro/go-zero/rest"
+
 	"github.com/yourname/stationery-shop/apps/api/internal/pkg/jwt"
 	"github.com/yourname/stationery-shop/apps/api/internal/pkg/response"
 )
@@ -43,6 +45,14 @@ func AdminAuth(secret string) func(http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, CtxKeyAdminRole, claims.Role)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
+	}
+}
+
+// AdminAuthHandlerFunc 返回 go-zero 的 rest.Middleware 版本，供 rest.WithMiddlewares 使用
+func AdminAuthHandlerFunc(secret string) rest.Middleware {
+	next := AdminAuth(secret)
+	return func(handler http.HandlerFunc) http.HandlerFunc {
+		return next(handler).ServeHTTP
 	}
 }
 

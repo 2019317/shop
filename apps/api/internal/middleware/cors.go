@@ -3,6 +3,8 @@ package middleware
 import (
 	"net/http"
 	"strings"
+
+	"github.com/zeromicro/go-zero/rest"
 )
 
 // CORS 跨域处理：仅放行配置中的前台与后台域名
@@ -34,5 +36,13 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 			}
 			next.ServeHTTP(w, r)
 		})
+	}
+}
+
+// CORSHandlerFunc 返回 go-zero 的 rest.Middleware 版本，供 rest.WithMiddlewares 使用
+func CORSHandlerFunc(allowedOrigins []string) rest.Middleware {
+	next := CORS(allowedOrigins)
+	return func(handler http.HandlerFunc) http.HandlerFunc {
+		return next(handler).ServeHTTP
 	}
 }
