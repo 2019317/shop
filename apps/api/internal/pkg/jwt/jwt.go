@@ -3,6 +3,7 @@ package jwt
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -46,7 +47,9 @@ func Parse(token, secret string) (*Claims, error) {
 	if len(parts) != 3 {
 		return nil, ErrInvalidToken
 	}
-	if signHS256(parts[0]+"."+parts[1], secret) != parts[2] {
+	// 恒定时间比较签名，避免时序攻击泄露校验结果
+	expected := signHS256(parts[0]+"."+parts[1], secret)
+	if subtle.ConstantTimeCompare([]byte(expected), []byte(parts[2])) != 1 {
 		return nil, ErrInvalidToken
 	}
 

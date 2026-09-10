@@ -8,7 +8,8 @@ import (
 )
 
 // NewCorsOrigins 按配置生成 CORS 中间件。
-// 配置为空或 "*" 时允许全部来源（回写请求头中的 Origin，以便携带凭证）。
+// 配置为空或 "*" 时允许全部来源，但此时不返回凭证（浏览器也不会随 "*" 发送 Cookie），
+// 避免任意第三方站点读取携带凭证的响应；仅在明确配置可信来源时才回写 Origin 并开放凭证。
 func NewCorsOrigins(corsOrigins string) func(http.Handler) http.Handler {
 	origins := parseOrigins(corsOrigins)
 	allowAll := len(origins) == 0 || origins["*"]
@@ -17,7 +18,10 @@ func NewCorsOrigins(corsOrigins string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
 			if origin != "" {
-				if allowAll || origins[origin] {
+				if allowAll {
+					// 通配模式：不设凭证，仅开放跨域读取（无 Cookie/Authorization 上下文）
+					w.Header().Set("Access-Control-Allow-Origin", "*")
+				} else if origins[origin] {
 					w.Header().Set("Access-Control-Allow-Origin", origin)
 					w.Header().Set("Vary", "Origin")
 					w.Header().Set("Access-Control-Allow-Credentials", "true")
